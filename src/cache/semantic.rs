@@ -26,7 +26,12 @@ pub struct SemanticCache {
 }
 
 impl SemanticCache {
-    pub async fn new(qdrant_url: &str, threshold: f32, embedding_dim: u64, db_path: &str) -> Result<Self, TesseraError> {
+    pub async fn new(
+        qdrant_url: &str,
+        threshold: f32,
+        embedding_dim: u64,
+        db_path: &str,
+    ) -> Result<Self, TesseraError> {
         let client = QdrantClient::from_url(qdrant_url).build()?;
 
         let db = Arc::new(

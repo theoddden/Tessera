@@ -140,10 +140,17 @@ impl CacheStore {
         let db = self.db.clone();
 
         db.call(move |conn| {
-            let total: u64 = conn.query_row("SELECT COUNT(*) FROM adapters", [], |row| row.get(0))?;
-            let hits: u64 = conn.query_row("SELECT SUM(hit_count) FROM adapters", [], |row| row.get(0)).unwrap_or(0);
-            let avg_quality: f64 = conn.query_row("SELECT AVG(quality_score) FROM adapters", [], |row| row.get(0)).unwrap_or(0.0);
-            
+            let total: u64 =
+                conn.query_row("SELECT COUNT(*) FROM adapters", [], |row| row.get(0))?;
+            let hits: u64 = conn
+                .query_row("SELECT SUM(hit_count) FROM adapters", [], |row| row.get(0))
+                .unwrap_or(0);
+            let avg_quality: f64 = conn
+                .query_row("SELECT AVG(quality_score) FROM adapters", [], |row| {
+                    row.get(0)
+                })
+                .unwrap_or(0.0);
+
             Ok(CacheStats {
                 total_adapters: total,
                 total_hits: hits,

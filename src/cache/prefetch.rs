@@ -1,7 +1,7 @@
+use crate::api::models::GenerationContext;
 use crate::cache::semantic::SemanticCache;
 use crate::error::TesseraError;
 use crate::generation::pipeline::GenerationPipeline;
-use crate::api::models::GenerationContext;
 use chrono::{DateTime, Duration, Utc};
 use std::collections::VecDeque;
 use std::sync::Arc;
@@ -93,7 +93,11 @@ impl PredictivePrefetcher {
                 let base_model = "meta-llama/Llama-3-8B";
                 match pipeline.generate(&context, base_model, 16).await {
                     Ok(result) => {
-                        tracing::info!("Prefetched adapter {} for domain {}", result.adapter_id, domain);
+                        tracing::info!(
+                            "Prefetched adapter {} for domain {}",
+                            result.adapter_id,
+                            domain
+                        );
                     }
                     Err(e) => {
                         tracing::warn!("Failed to prefetch for domain {}: {}", domain, e);
