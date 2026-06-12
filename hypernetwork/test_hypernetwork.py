@@ -1,6 +1,5 @@
 """Tests for Tessera Hypernetwork Service"""
 
-import pytest
 from doc_to_lora import DocToLoRA
 from text_to_lora import TextToLoRA
 from metadata_to_lora import MetadataToLoRA

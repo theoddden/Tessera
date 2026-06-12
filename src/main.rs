@@ -39,13 +39,15 @@ async fn main() -> anyhow::Result<()> {
     metrics::set_global_recorder(recorder).expect("Failed to set metrics recorder");
 
     // Initialize components
-    let cache = Arc::new(SemanticCache::new(
-        &config.qdrant_url,
-        config.similarity_threshold,
-        config.embedding_dim,
-        &config.cache_db_path,
-    )
-    .await?);
+    let cache = Arc::new(
+        SemanticCache::new(
+            &config.qdrant_url,
+            config.similarity_threshold,
+            config.embedding_dim,
+            &config.cache_db_path,
+        )
+        .await?,
+    );
 
     let cache_store = Arc::new(CacheStore::new(&config.cache_db_path).await?);
 
