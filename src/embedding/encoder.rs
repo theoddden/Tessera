@@ -135,7 +135,8 @@ impl Encoder {
     fn mean_pool(&self, output: &Tensor, attention_mask: &Tensor) -> CandleResult<Tensor> {
         let attention_mask_expanded = attention_mask.unsqueeze(2)?.expand(output.dims())?;
 
-        let sum = (output * attention_mask_expanded).sum(1)?;
+        let product = output.broadcast_mul(attention_mask_expanded)?;
+        let sum = product.sum(1)?;
         let mask_sum = attention_mask_expanded.sum(1)?;
         let mean = sum.broadcast_div(&mask_sum)?;
 

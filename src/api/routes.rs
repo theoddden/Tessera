@@ -10,7 +10,6 @@ use axum::{
     response::{IntoResponse, Json},
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
-use metrics_exporter_prometheus::PrometheusHandle;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -20,7 +19,6 @@ pub struct AppState {
     pub cache_store: Arc<CacheStore>,
     pub pipeline: Arc<GenerationPipeline>,
     pub encoder: Arc<Encoder>,
-    pub metrics_handle: PrometheusHandle,
 }
 
 pub async fn generate(
