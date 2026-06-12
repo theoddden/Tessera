@@ -1,10 +1,10 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from pydantic import BaseModel
 import torch
 from safetensors.torch import save as save_safetensors
 from fastapi.responses import Response
 import io
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict
 from doc_to_lora import DocToLoRA
 from functools import lru_cache
 

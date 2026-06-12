@@ -3,7 +3,7 @@ Text-to-LoRA pipeline for generating LoRA adapters from natural language descrip
 """
 
 import torch
-from typing import Dict, Any
+from typing import Dict
 from transformers import AutoTokenizer, AutoModel
 
 

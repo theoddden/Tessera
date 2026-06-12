@@ -7,7 +7,7 @@ hierarchical information extraction and attention-based compression.
 
 import torch
 import torch.nn as nn
-from typing import Dict, Any, List
+from typing import Dict, List
 from transformers import AutoTokenizer, AutoModel
 
 
