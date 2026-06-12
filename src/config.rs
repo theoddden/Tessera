@@ -52,10 +52,8 @@ impl Config {
             prefetch_top_k: env::var("PREFETCH_TOP_K")
                 .unwrap_or_else(|_| "10".to_string())
                 .parse()?,
-            log_level: env::var("LOG_LEVEL")
-                .unwrap_or_else(|_| "info".to_string()),
-            cache_db_path: env::var("CACHE_DB_PATH")
-                .unwrap_or_else(|_| "./cache.db".to_string()),
+            log_level: env::var("LOG_LEVEL").unwrap_or_else(|_| "info".to_string()),
+            cache_db_path: env::var("CACHE_DB_PATH").unwrap_or_else(|_| "./cache.db".to_string()),
         })
     }
 }

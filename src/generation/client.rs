@@ -75,9 +75,7 @@ impl HypernetworkClient {
             .await?;
 
         if !response.status().is_success() {
-            return Err(TesseraError::HypernetworkError(
-                response.text().await?,
-            ));
+            return Err(TesseraError::HypernetworkError(response.text().await?));
         }
 
         // Stream adapter weights directly from response body

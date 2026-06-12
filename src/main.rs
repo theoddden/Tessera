@@ -1,3 +1,4 @@
+mod adapter;
 mod api;
 mod cache;
 mod composition;
@@ -5,21 +6,20 @@ mod config;
 mod embedding;
 mod error;
 mod generation;
-mod adapter;
 
-use api::routes::{AppState, generate, retrieve, embed, health, metrics};
-use embedding::encoder::Encoder;
 use adapter::weights::AdapterStore;
+use api::routes::{embed, generate, health, metrics, retrieve, AppState};
+use cache::prefetch::PredictivePrefetcher;
 use cache::semantic::SemanticCache;
 use cache::store::CacheStore;
-use cache::prefetch::PredictivePrefetcher;
 use composition::mixer::SkillMixer;
 use config::Config;
+use embedding::encoder::Encoder;
 use generation::client::HypernetworkClient;
 use generation::pipeline::GenerationPipeline;
-use std::sync::Arc;
 use metrics::{counter, gauge};
 use metrics_exporter_prometheus::PrometheusBuilder;
+use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -39,9 +39,13 @@ async fn main() -> anyhow::Result<()> {
     metrics::set_global_recorder(recorder).expect("Failed to set metrics recorder");
 
     // Initialize components
-    let cache = Arc::new(
-        SemanticCache::new(&config.qdrant_url, config.similarity_threshold, config.embedding_dim, &config.cache_db_path).await?,
-    );
+    let cache = Arc::new(SemanticCache::new(
+        &config.qdrant_url,
+        config.similarity_threshold,
+        config.embedding_dim,
+        &config.cache_db_path,
+    )
+    .await?);
 
     let cache_store = Arc::new(CacheStore::new(&config.cache_db_path).await?);
 
@@ -58,10 +62,8 @@ async fn main() -> anyhow::Result<()> {
         cache_store.clone(),
     ));
 
-    let mut prefetcher = PredictivePrefetcher::new(
-        config.prefetch_horizon_minutes,
-        config.prefetch_top_k,
-    );
+    let mut prefetcher =
+        PredictivePrefetcher::new(config.prefetch_horizon_minutes, config.prefetch_top_k);
     prefetcher.set_pipeline(pipeline.clone());
     let prefetcher = Arc::new(prefetcher);
 

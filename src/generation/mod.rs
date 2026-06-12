@@ -1,5 +1,5 @@
 pub mod client;
 pub mod pipeline;
 
-pub use client::{HypernetworkClient, RawAdapterWeights, GenerationMode};
+pub use client::{GenerationMode, HypernetworkClient, RawAdapterWeights};
 pub use pipeline::{GenerationPipeline, GenerationResult};

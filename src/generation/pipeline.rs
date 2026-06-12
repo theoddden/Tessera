@@ -1,5 +1,5 @@
-use crate::adapter::weights::AdapterStore;
 use crate::adapter::validate::AdapterValidator;
+use crate::adapter::weights::AdapterStore;
 use crate::api::models::GenerationContext;
 use crate::cache::semantic::SemanticCache;
 use crate::cache::store::CacheStore;
@@ -61,13 +61,11 @@ impl GenerationPipeline {
         let adapter_id = uuid::Uuid::new_v4().to_string();
 
         // Save adapter to store
-        let adapter_path = self
-            .adapter_store
-            .save(&adapter_id, &raw.bytes)
-            .await?;
+        let adapter_path = self.adapter_store.save(&adapter_id, &raw.bytes).await?;
 
         // Record in cache store (cleanup file if this fails)
-        let cache_result = self.cache_store
+        let cache_result = self
+            .cache_store
             .record_adapter(
                 &adapter_id,
                 adapter_path.to_str().unwrap(),
@@ -76,7 +74,7 @@ impl GenerationPipeline {
                 &raw.source_type,
             )
             .await;
-        
+
         if cache_result.is_err() {
             // Cleanup: delete the saved file if cache recording failed
             let _ = self.adapter_store.delete(&adapter_id).await;

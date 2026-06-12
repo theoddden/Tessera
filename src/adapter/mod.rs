@@ -1,5 +1,5 @@
-pub mod weights;
 pub mod validate;
+pub mod weights;
 
-pub use weights::AdapterStore;
 pub use validate::AdapterValidator;
+pub use weights::AdapterStore;

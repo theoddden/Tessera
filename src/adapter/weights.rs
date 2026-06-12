@@ -9,23 +9,17 @@ pub struct AdapterStore {
 impl AdapterStore {
     pub fn new(base_path: &str) -> Result<Self, TesseraError> {
         let path = PathBuf::from(base_path);
-        
+
         if !path.exists() {
-            std::fs::create_dir_all(&path)
-                .map_err(|e| TesseraError::IoError(e))?;
+            std::fs::create_dir_all(&path).map_err(|e| TesseraError::IoError(e))?;
         }
 
         Ok(AdapterStore { base_path: path })
     }
 
-    pub async fn save(
-        &self,
-        adapter_id: &str,
-        bytes: &[u8],
-    ) -> Result<PathBuf, TesseraError> {
+    pub async fn save(&self, adapter_id: &str, bytes: &[u8]) -> Result<PathBuf, TesseraError> {
         // Validate safetensors format before storing
-        SafeTensors::deserialize(bytes)
-            .map_err(|e| TesseraError::InvalidAdapter(e.to_string()))?;
+        SafeTensors::deserialize(bytes).map_err(|e| TesseraError::InvalidAdapter(e.to_string()))?;
 
         let path = self.base_path.join(format!("{}.safetensors", adapter_id));
 
@@ -57,7 +51,7 @@ impl AdapterStore {
 
     pub async fn delete(&self, adapter_id: &str) -> Result<(), TesseraError> {
         let path = self.base_path.join(format!("{}.safetensors", adapter_id));
-        
+
         if path.exists() {
             tokio::fs::remove_file(&path)
                 .await
@@ -74,11 +68,17 @@ impl AdapterStore {
 
         let mut adapter_ids = Vec::new();
 
-        while let Some(entry) = entries.next_entry().await
-            .map_err(|e| TesseraError::IoError(e))? 
+        while let Some(entry) = entries
+            .next_entry()
+            .await
+            .map_err(|e| TesseraError::IoError(e))?
         {
             let path = entry.path();
-            if path.extension().map(|e| e == "safetensors").unwrap_or(false) {
+            if path
+                .extension()
+                .map(|e| e == "safetensors")
+                .unwrap_or(false)
+            {
                 if let Some(stem) = path.file_stem() {
                     if let Some(id) = stem.to_str() {
                         adapter_ids.push(id.to_string());

@@ -67,10 +67,7 @@ impl Encoder {
         })
     }
 
-    pub async fn encode(
-        &self,
-        context: &GenerationContext,
-    ) -> Result<Vec<f32>, TesseraError> {
+    pub async fn encode(&self, context: &GenerationContext) -> Result<Vec<f32>, TesseraError> {
         let text = self.serialize_context(context);
 
         let encoding = self
@@ -78,21 +75,15 @@ impl Encoder {
             .encode(text, true)
             .map_err(|e| TesseraError::EmbeddingError(e.to_string()))?;
 
-        let input_ids = Tensor::new(
-            encoding.get_ids(),
-            &self.device,
-        )
-        .map_err(|e| TesseraError::EmbeddingError(e.to_string()))?
-        .unsqueeze(0)
-        .map_err(|e| TesseraError::EmbeddingError(e.to_string()))?;
+        let input_ids = Tensor::new(encoding.get_ids(), &self.device)
+            .map_err(|e| TesseraError::EmbeddingError(e.to_string()))?
+            .unsqueeze(0)
+            .map_err(|e| TesseraError::EmbeddingError(e.to_string()))?;
 
-        let attention_mask = Tensor::new(
-            encoding.get_attention_mask(),
-            &self.device,
-        )
-        .map_err(|e| TesseraError::EmbeddingError(e.to_string()))?
-        .unsqueeze(0)
-        .map_err(|e| TesseraError::EmbeddingError(e.to_string()))?;
+        let attention_mask = Tensor::new(encoding.get_attention_mask(), &self.device)
+            .map_err(|e| TesseraError::EmbeddingError(e.to_string()))?
+            .unsqueeze(0)
+            .map_err(|e| TesseraError::EmbeddingError(e.to_string()))?;
 
         let output = self
             .model
@@ -123,11 +114,7 @@ impl Encoder {
         }
         if let Some(meta) = &ctx.metadata {
             if let Some(keys) = meta.as_object() {
-                let summary: Vec<String> = keys
-                    .keys()
-                    .take(10)
-                    .map(|k| k.clone())
-                    .collect();
+                let summary: Vec<String> = keys.keys().take(10).map(|k| k.clone()).collect();
                 parts.push(format!("fields: {}", summary.join(", ")));
             }
         }
@@ -140,11 +127,7 @@ impl Encoder {
         parts.join(" | ")
     }
 
-    fn mean_pool(
-        &self,
-        output: &Tensor,
-        attention_mask: &Tensor,
-    ) -> CandleResult<Tensor> {
+    fn mean_pool(&self, output: &Tensor, attention_mask: &Tensor) -> CandleResult<Tensor> {
         let attention_mask_expanded = attention_mask
             .unsqueeze(2)
             .expand(output.dims())?;

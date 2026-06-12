@@ -1,9 +1,9 @@
 use crate::api::models::*;
 use crate::cache::semantic::SemanticCache;
 use crate::cache::store::CacheStore;
+use crate::embedding::encoder::Encoder;
 use crate::error::TesseraError;
 use crate::generation::pipeline::GenerationPipeline;
-use crate::embedding::encoder::Encoder;
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -41,7 +41,6 @@ pub async fn generate(
         // Cache hit: return cached adapter
         let total_ms = start.elapsed().as_millis() as u64;
         let adapter_bytes = state.cache_store.get_adapter_path(&hit.adapter_id).await?;
-        
         let adapter_payload = if let Some(path) = adapter_bytes {
             let bytes = tokio::fs::read(&path).await?;
             to_payload(bytes, &req.response_format, &hit.adapter_id)
@@ -84,15 +83,18 @@ pub async fn generate(
     let gen_ms = gen_start.elapsed().as_millis() as u64;
 
     // Store in semantic cache
-    let _ = state.cache.store(
-        &embedding,
-        &result.adapter_id,
-        &result.adapter_path,
-        &req.base_model,
-        result.rank,
-        &result.source_type,
-        &result.recommended_vllm_args,
-    ).await;
+    let _ = state
+        .cache
+        .store(
+            &embedding,
+            &result.adapter_id,
+            &result.adapter_path,
+            &req.base_model,
+            result.rank,
+            &result.source_type,
+            &result.recommended_vllm_args,
+        )
+        .await;
 
     let total_ms = start.elapsed().as_millis() as u64;
 
@@ -129,11 +131,16 @@ pub async fn retrieve(
         let bytes = tokio::fs::read(&path).await?;
         to_payload(bytes, &None, &adapter_id)
     } else {
-        return Err(TesseraError::InvalidAdapter(format!("Adapter {} not found", adapter_id)));
+        return Err(TesseraError::InvalidAdapter(format!(
+            "Adapter {} not found",
+            adapter_id
+        )));
     };
 
     let metadata = state.cache_store.get_adapter_metadata(&adapter_id).await?;
-    let meta = metadata.ok_or_else(|| TesseraError::InvalidAdapter(format!("Metadata for {} not found", adapter_id)))?;
+    let meta = metadata.ok_or_else(|| {
+        TesseraError::InvalidAdapter(format!("Metadata for {} not found", adapter_id))
+    })?;
 
     Ok(Json(AdapterRetrieveResponse {
         adapter_id,
@@ -177,7 +184,12 @@ pub async fn embed(
 
 pub async fn health(State(state): State<AppState>) -> Json<HealthResponse> {
     let qdrant_connected = state.cache.client.list_collections().await.is_ok();
-    let hypernetwork_connected = state.pipeline.hypernetwork.health_check().await.unwrap_or(false);
+    let hypernetwork_connected = state
+        .pipeline
+        .hypernetwork
+        .health_check()
+        .await
+        .unwrap_or(false);
     let cache_stats = state.cache_store.get_stats().await.unwrap_or_default();
 
     let status = if qdrant_connected && hypernetwork_connected {
@@ -205,10 +217,9 @@ pub async fn metrics(State(state): State<AppState>) -> impl IntoResponse {
 fn to_payload(bytes: Vec<u8>, format: &Option<ResponseFormat>, adapter_id: &str) -> AdapterPayload {
     match format {
         Some(ResponseFormat::Base64) => AdapterPayload::Base64(STANDARD.encode(&bytes)),
-        Some(ResponseFormat::Url) => AdapterPayload::Url(format!(
-            "https://tessera.local/adapters/{}",
-            adapter_id
-        )),
+        Some(ResponseFormat::Url) => {
+            AdapterPayload::Url(format!("https://tessera.local/adapters/{}", adapter_id))
+        }
         _ => AdapterPayload::Bytes(bytes),
     }
 }

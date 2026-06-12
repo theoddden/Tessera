@@ -93,14 +93,18 @@ impl SkillMixer {
         let skill_adapters = self.load_skill_adapters(&relevant_skills).await?;
 
         // 4. Compose: weighted sum of adapter matrices
-        let composed_weights = self.compose_adapters(&skill_adapters, &mixing_weights, &relevant_skills)?;
+        let composed_weights =
+            self.compose_adapters(&skill_adapters, &mixing_weights, &relevant_skills)?;
 
         // 5. Serialize composed adapter
         let adapter_id = uuid::Uuid::new_v4().to_string();
         let composed_bytes = self.serialize_composed(&composed_weights, rank)?;
 
         // 6. Save composed adapter
-        let _ = self.adapter_store.save(&adapter_id, &composed_bytes).await?;
+        let _ = self
+            .adapter_store
+            .save(&adapter_id, &composed_bytes)
+            .await?;
 
         let skill_mix: Vec<(String, f32)> = relevant_skills
             .iter()
@@ -177,7 +181,6 @@ impl SkillMixer {
                 if let Some(bytes) = skill_adapters.get(&skill.skill_id) {
                     let tensors = SafeTensors::deserialize(bytes)
                         .map_err(|e| TesseraError::CorruptAdapter(e.to_string()))?;
-                    
                     if let Some(tensor) = tensors.tensor(&tensor_name) {
                         use safetensors::tensor::Dtype;
                         if tensor.dtype() != Dtype::F32 {
@@ -214,8 +217,8 @@ impl SkillMixer {
         composed: &HashMap<String, ArrayD<f32>>,
         rank: u32,
     ) -> Result<Vec<u8>, TesseraError> {
-        use safetensors::tensor::{TensorView, Dtype};
-        
+        use safetensors::tensor::{Dtype, TensorView};
+
         // Collect all data vectors first to ensure they live long enough
         let mut data_vecs: Vec<(String, Vec<f32>, Vec<usize>)> = Vec::new();
 
@@ -228,12 +231,9 @@ impl SkillMixer {
         // Create TensorViews from the collected data
         let mut tensors: Vec<(String, TensorView<'_>)> = Vec::new();
         for (name, data, shape) in &data_vecs {
-            let tensor_view = TensorView::new(
-                Dtype::F32,
-                shape.clone(),
-                bytemuck::cast_slice(data),
-            ).map_err(|e| TesseraError::InvalidAdapter(e.to_string()))?;
-            
+            let tensor_view =
+                TensorView::new(Dtype::F32, shape.clone(), bytemuck::cast_slice(data))
+                    .map_err(|e| TesseraError::InvalidAdapter(e.to_string()))?;
             tensors.push((name.clone(), tensor_view));
         }
 

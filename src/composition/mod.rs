@@ -1,5 +1,7 @@
-pub mod mixer;
 pub mod cross_arch;
+pub mod mixer;
 
-pub use mixer::{SkillMixer, AtomicSkill, CompositionResult};
-pub use cross_arch::{CrossArchHypernetwork, ArchitectureSignature, DecoderHead, SharedEncoder, AdapterExample};
+pub use cross_arch::{
+    AdapterExample, ArchitectureSignature, CrossArchHypernetwork, DecoderHead, SharedEncoder,
+};
+pub use mixer::{AtomicSkill, CompositionResult, SkillMixer};

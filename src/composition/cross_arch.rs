@@ -37,7 +37,7 @@ impl DecoderHead {
         // 1. Concatenate latent_z + arch_sig
         // 2. Run through decoder network
         // 3. Output LoRA weights shaped for target architecture
-        
+
         // For now, return placeholder
         tracing::info!("Decoding for model {} with rank {}", self.model_id, rank);
         Ok(vec![])
@@ -52,7 +52,7 @@ impl DecoderHead {
         // 1. Freeze encoder
         // 2. Train decoder head on architecture-specific adapter examples
         // 3. Return trained decoder
-        
+
         Ok(DecoderHead::new(model_id))
     }
 }
@@ -73,7 +73,7 @@ impl SharedEncoder {
         // 1. Serialize context to text
         // 2. Run through encoder network
         // 3. Return latent vector z ∈ ℝ^latent_dim
-        
+
         // For now, return placeholder latent vector
         let latent = vec![0.0f32; self.latent_dim];
         Ok(latent)
@@ -116,7 +116,7 @@ impl ProbeActivationCache {
         // 1. Run probe sentences through the target model
         // 2. Extract activations from middle layers
         // 3. Compress to fixed-size signature vector
-        
+
         // For now, return placeholder signature
         let sig = ArchitectureSignature {
             model_id: model_id.to_string(),
@@ -168,13 +168,13 @@ impl CrossArchHypernetwork {
         let arch_sig = probe_cache.get_or_compute(target_model).await?;
 
         // 3. Decode: latent + arch_sig → target model weights
-        let decoder = self
-            .decoder_registry
-            .get(target_model)
-            .ok_or(TesseraError::HypernetworkError(format!(
-                "Unsupported model: {}",
-                target_model
-            )))?;
+        let decoder =
+            self.decoder_registry
+                .get(target_model)
+                .ok_or(TesseraError::HypernetworkError(format!(
+                    "Unsupported model: {}",
+                    target_model
+                )))?;
 
         let weights = decoder.decode(&latent_z, &arch_sig, rank)?;
 
