@@ -33,8 +33,9 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("Starting Tessera v0.1.0");
 
     // Initialize metrics exporter
-    let (recorder, _metrics_handle) = PrometheusBuilder::new().build()?;
+    let (recorder, metrics_handle) = PrometheusBuilder::new().build()?;
     metrics::set_global_recorder(recorder).expect("Failed to set metrics recorder");
+    let metrics_handle = metrics_handle.handle();
 
     // Initialize components
     let cache = Arc::new(
@@ -95,6 +96,7 @@ async fn main() -> anyhow::Result<()> {
         cache_store,
         pipeline,
         encoder: Arc::new(Encoder::new(&config.embedding_model).await?),
+        metrics_handle,
     };
 
     // Build router

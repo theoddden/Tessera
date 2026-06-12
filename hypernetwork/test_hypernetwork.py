@@ -29,8 +29,8 @@ def test_metadata_to_lora_initialization():
 def test_text_to_lora_projection_layers():
     """Test that projection layers are initialized"""
     model = TextToLoRA("meta-llama/Llama-3-8B")
-    assert model.proj_lora_A is not None
-    assert model.proj_lora_B is not None
+    assert model.projection_a is not None
+    assert model.projection_b is not None
 
 
 def test_doc_to_lora_shine_processor():
