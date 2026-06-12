@@ -83,11 +83,12 @@ impl AdapterValidator {
             use safetensors::tensor::Dtype;
             match tensor.dtype() {
                 Dtype::F32 => {
-                    let data: &[u8] = tensor.data();
-                    let data: &[f32] = bytemuck::cast_slice(data);
-                    let norm: f32 = data.iter().map(|&x| x * x).sum::<f32>().sqrt();
-                    total_norm += norm;
-                    count += 1;
+                    if let Ok(data) = tensor.data() {
+                        let data: &[f32] = bytemuck::cast_slice(data);
+                        let norm: f32 = data.iter().map(|&x| x * x).sum::<f32>().sqrt();
+                        total_norm += norm;
+                        count += 1;
+                    }
                 }
                 Dtype::F16 | Dtype::BF16 => {
                     // Skip half-precision tensors for quality estimation

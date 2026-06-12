@@ -17,6 +17,7 @@ use config::Config;
 use embedding::encoder::Encoder;
 use generation::client::HypernetworkClient;
 use generation::pipeline::GenerationPipeline;
+use metrics::{counter, gauge};
 use metrics_exporter_prometheus::PrometheusBuilder;
 use std::sync::Arc;
 
@@ -33,9 +34,9 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("Starting Tessera v0.1.0");
 
     // Initialize metrics exporter
-    let (recorder, metrics_handle) = PrometheusBuilder::new().build()?;
+    let recorder = PrometheusBuilder::new().build();
+    let metrics_handle = recorder.handle();
     metrics::set_global_recorder(recorder).expect("Failed to set metrics recorder");
-    let metrics_handle = metrics_handle.handle();
 
     // Initialize components
     let cache = Arc::new(

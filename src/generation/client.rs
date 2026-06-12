@@ -87,7 +87,6 @@ impl HypernetworkClient {
             .and_then(|tensors| {
                 tensors
                     .tensors()
-                    .into_iter()
                     .find(|(name, _)| name.contains("lora_A"))
                     .and_then(|(_, t)| t.shape().first().copied())
                     .map(|r| r as u32)

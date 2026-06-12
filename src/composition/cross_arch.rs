@@ -68,7 +68,7 @@ impl SharedEncoder {
         SharedEncoder { latent_dim }
     }
 
-    pub async fn encode(&self, _context: &GenerationContext) -> Result<Vec<f32>, TesseraError> {
+    pub async fn encode(&self, context: &GenerationContext) -> Result<Vec<f32>, TesseraError> {
         // In production, this would:
         // 1. Serialize context to text
         // 2. Run through encoder network

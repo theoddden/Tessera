@@ -1,8 +1,8 @@
 """Tests for Tessera Hypernetwork Service"""
 
-from hypernetwork.doc_to_lora import DocToLoRA
-from hypernetwork.text_to_lora import TextToLoRA
-from hypernetwork.metadata_to_lora import MetadataToLoRA
+from doc_to_lora import DocToLoRA
+from text_to_lora import TextToLoRA
+from metadata_to_lora import MetadataToLoRA
 
 
 def test_text_to_lora_initialization():
