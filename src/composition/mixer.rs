@@ -242,7 +242,7 @@ impl SkillMixer {
         }
 
         safetensors::serialize(tensors.into_iter(), &Default::default())
-            .map_err(|e| TesseraError::SerializationError(e.to_string()))
+            .map_err(|e| TesseraError::SerializationError(e))
     }
 
     pub async fn list_skills(&self) -> Result<Vec<AtomicSkill>, TesseraError> {

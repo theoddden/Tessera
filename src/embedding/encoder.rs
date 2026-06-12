@@ -51,13 +51,12 @@ impl Encoder {
         for (name, tensor) in tensors.tensors() {
             let data: Vec<u8> = tensor.data().to_vec();
             let shape = tensor.shape().to_vec();
-            let candle_tensor = Tensor::from_raw_buffer(&data, &shape, &device)
+            let candle_tensor = Tensor::from_raw_buffer(&data, candle_core::DType::F32, &shape, &device)
                 .map_err(|e| TesseraError::EmbeddingError(e.to_string()))?;
             tensor_map.insert(name, candle_tensor);
         }
 
-        let vb = VarBuilder::from_tensors(tensor_map, candle_core::DType::F32, &device)
-            .map_err(|e| TesseraError::EmbeddingError(e.to_string()))?;
+        let vb = VarBuilder::from_tensors(tensor_map, candle_core::DType::F32, &device);
 
         let model = BertModel::load(vb, &config)
             .map_err(|e| TesseraError::EmbeddingError(e.to_string()))?;

@@ -35,6 +35,7 @@ async fn main() -> anyhow::Result<()> {
     // Initialize metrics exporter
     let (recorder, metrics_handle) = PrometheusBuilder::new().build()?;
     metrics::set_global_recorder(recorder).expect("Failed to set metrics recorder");
+    let metrics_handle = metrics_handle.handle();
 
     // Initialize components
     let cache = Arc::new(
