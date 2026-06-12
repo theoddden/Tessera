@@ -3,14 +3,8 @@ name: Python Hypernetwork CI
 on:
   push:
     branches: [ main, develop ]
-    paths:
-      - 'hypernetwork/**'
-      - 'pyproject.toml'
   pull_request:
     branches: [ main, develop ]
-    paths:
-      - 'hypernetwork/**'
-      - 'pyproject.toml'
 
 jobs:
   lint-and-test:
