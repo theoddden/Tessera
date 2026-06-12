@@ -48,8 +48,6 @@ jobs:
         push: ${{ github.event_name != 'pull_request' }}
         tags: ${{ steps.meta-tessera.outputs.tags }}
         labels: ${{ steps.meta-tessera.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
 
     - name: Extract metadata for Hypernetwork
       id: meta-hypernetwork
@@ -70,5 +68,3 @@ jobs:
         push: ${{ github.event_name != 'pull_request' }}
         tags: ${{ steps.meta-hypernetwork.outputs.tags }}
         labels: ${{ steps.meta-hypernetwork.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
