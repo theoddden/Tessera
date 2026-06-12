@@ -1,0 +1,63 @@
+version: "3.9"
+
+services:
+  tessera:
+    build:
+      context: .
+      dockerfile: Dockerfile.tessera
+    ports:
+      - "8080:8080"
+    environment:
+      - QDRANT_URL=http://qdrant:6333
+      - HYPERNETWORK_URL=http://hypernetwork:8000
+      - ADAPTER_STORE_PATH=/adapters
+      - SIMILARITY_THRESHOLD=0.92
+      - EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+      - EMBEDDING_DIM=384
+      - PORT=8080
+      - LOG_LEVEL=info
+      - GENERATION_TIMEOUT_MS=30000
+      - PREFETCH_HORIZON_MINUTES=60
+      - PREFETCH_TOP_K=10
+      - CACHE_DB_PATH=/cache/cache.db
+    volumes:
+      - adapters:/adapters
+      - cache:/cache
+    depends_on:
+      - qdrant
+      - hypernetwork
+    restart: unless-stopped
+
+  hypernetwork:
+    build:
+      context: .
+      dockerfile: Dockerfile.hypernetwork
+    ports:
+      - "8000:8000"
+    environment:
+      - MODEL_CACHE_DIR=/models
+    volumes:
+      - models:/models
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: unless-stopped
+
+volumes:
+  adapters:
+  models:
+  qdrant_data:
+  cache:

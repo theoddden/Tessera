@@ -1,0 +1,74 @@
+name: Docker Build and Push
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME_TESSERA: tessera-core
+  IMAGE_NAME_HYPERNETWORK: tessera-hypernetwork
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata for Tessera
+      id: meta-tessera
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.IMAGE_NAME_TESSERA }}
+        tags: |
+          type=ref,event=branch
+          type=sha,prefix={{branch}}-
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+
+    - name: Build and push Tessera image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile.tessera
+        push: ${{ github.event_name != 'pull_request' }}
+        tags: ${{ steps.meta-tessera.outputs.tags }}
+        labels: ${{ steps.meta-tessera.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Extract metadata for Hypernetwork
+      id: meta-hypernetwork
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.IMAGE_NAME_HYPERNETWORK }}
+        tags: |
+          type=ref,event=branch
+          type=sha,prefix={{branch}}-
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+
+    - name: Build and push Hypernetwork image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./hypernetwork
+        file: ./hypernetwork/Dockerfile
+        push: ${{ github.event_name != 'pull_request' }}
+        tags: ${{ steps.meta-hypernetwork.outputs.tags }}
+        labels: ${{ steps.meta-hypernetwork.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max

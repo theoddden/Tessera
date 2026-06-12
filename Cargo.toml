@@ -1,0 +1,63 @@
+[package]
+name = "tessera"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# HTTP
+axum = { version = "0.7", features = ["multipart"] }
+tokio = { version = "1", features = ["full"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+hyper = "1"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Adapter weights
+safetensors = "0.4"
+candle-core = "0.6"
+candle-nn = "0.6"
+candle-transformers = "0.6"
+
+# Vector DB
+qdrant-client = "1.9"
+
+# HTTP client (hypernetwork calls)
+reqwest = { version = "0.12", features = ["json", "stream"] }
+
+# Database
+rusqlite = { version = "0.31", features = ["bundled"] }
+tokio-rusqlite = "0.5"
+
+# Embedding
+hf-hub = "0.3"
+tokenizers = "0.15"
+
+# Observability
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+metrics = "0.22"
+metrics-exporter-prometheus = "0.13"
+
+# Config
+config = "0.14"
+dotenvy = "0.15"
+
+# Error handling
+anyhow = "1"
+thiserror = "1"
+
+# Utilities
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+bytes = "1"
+ndarray = "0.15"
+base64 = "0.22"
+bytemuck = "1"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

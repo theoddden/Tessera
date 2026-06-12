@@ -1,0 +1,30 @@
+# Dockerfile for Tessera Hypernetwork Service (Python/PyTorch)
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy Python dependencies
+COPY pyproject.toml ./
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -e .
+
+# Copy hypernetwork source
+COPY hypernetwork ./hypernetwork
+
+# Create model cache directory
+RUN mkdir -p /models
+
+# Expose port
+EXPOSE 8000
+
+# Set environment variables
+ENV MODEL_CACHE_DIR=/models
+
+# Run the service
+CMD ["uvicorn", "hypernetwork.server:app", "--host", "0.0.0.0", "--port", "8000"]
