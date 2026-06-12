@@ -57,7 +57,6 @@ logs/
 
 # Adapter storage
 adapters/
-cache/
 models/
 
 # Qdrant data
