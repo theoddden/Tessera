@@ -171,7 +171,11 @@ impl SkillMixer {
         let first_bytes = skill_adapters.values().next().unwrap();
         let first_tensors = SafeTensors::deserialize(first_bytes)
             .map_err(|e| TesseraError::CorruptAdapter(e.to_string()))?;
-        let tensor_names: Vec<String> = first_tensors.tensors().into_iter().map(|(name, _)| name.to_string()).collect();
+        let tensor_names: Vec<String> = first_tensors
+            .tensors()
+            .into_iter()
+            .map(|(name, _)| name.to_string())
+            .collect();
 
         for tensor_name in &tensor_names {
             let mut composed_tensor = None;

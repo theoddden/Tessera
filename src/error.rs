@@ -1,9 +1,9 @@
-use thiserror::Error;
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
     Json,
 };
+use thiserror::Error;
 
 impl From<hf_hub::api::sync::ApiError> for TesseraError {
     fn from(err: hf_hub::api::sync::ApiError) -> Self {
@@ -15,7 +15,9 @@ impl IntoResponse for TesseraError {
     fn into_response(self) -> Response {
         let (status, message) = match self {
             TesseraError::HttpError(e) => (StatusCode::BAD_GATEWAY, e.to_string()),
-            TesseraError::SerializationError(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
+            TesseraError::SerializationError(e) => {
+                (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+            }
             TesseraError::QdrantError(e) => (StatusCode::SERVICE_UNAVAILABLE, e),
             TesseraError::EmbeddingError(e) => (StatusCode::INTERNAL_SERVER_ERROR, e),
             TesseraError::HypernetworkError(e) => (StatusCode::BAD_GATEWAY, e),

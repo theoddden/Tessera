@@ -42,11 +42,11 @@ impl Encoder {
         .map_err(|e| TesseraError::EmbeddingError(e.to_string()))?;
 
         // Load safetensors and convert to VarBuilder
-        let model_bytes = std::fs::read(&model_path)
-            .map_err(|e| TesseraError::EmbeddingError(e.to_string()))?;
+        let model_bytes =
+            std::fs::read(&model_path).map_err(|e| TesseraError::EmbeddingError(e.to_string()))?;
         let tensors = SafeTensors::deserialize(&model_bytes)
             .map_err(|e| TesseraError::EmbeddingError(e.to_string()))?;
-        
+
         let mut tensor_map = std::collections::HashMap::new();
         for (name, tensor) in tensors.tensors() {
             let data: Vec<u8> = tensor.data().to_vec();
@@ -55,7 +55,7 @@ impl Encoder {
                 .map_err(|e| TesseraError::EmbeddingError(e.to_string()))?;
             tensor_map.insert(name, candle_tensor);
         }
-        
+
         let vb = VarBuilder::from_tensors(tensor_map, candle_core::DType::F32, &device)
             .map_err(|e| TesseraError::EmbeddingError(e.to_string()))?;
 
