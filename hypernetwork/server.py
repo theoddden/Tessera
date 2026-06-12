@@ -10,6 +10,7 @@ from functools import lru_cache
 
 app = FastAPI(title="Tessera Hypernetwork Service")
 
+
 # Cache hypernetwork models with capacity limit (max 4 models)
 @lru_cache(maxsize=4)
 def get_hypernetwork_cached(base_model: str, mode: str):
@@ -53,10 +54,7 @@ async def generate(req: GenerateRequest):
     adapter_bytes = serialize_lora(lora_weights)
 
     # Return raw bytes — no JSON wrapping
-    return Response(
-        content=adapter_bytes,
-        media_type="application/octet-stream"
-    )
+    return Response(content=adapter_bytes, media_type="application/octet-stream")
 
 
 @app.get("/health")
@@ -88,6 +86,7 @@ class PlaceholderHypernetwork:
         self.base_model = base_model
         self.mode = mode
         import logging
+
         logging.warning(
             f"PlaceholderHypernetwork active: mode='{mode}', base_model='{base_model}'. "
             "LoRA weights will be all-zeros. This is not suitable for production inference."
@@ -115,4 +114,5 @@ def get_model_dimensions(base_model: str) -> tuple:
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

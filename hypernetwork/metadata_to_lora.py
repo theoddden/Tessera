@@ -11,7 +11,12 @@ from transformers import AutoTokenizer, AutoModel
 class MetadataToLoRA:
     """Generate LoRA adapters from structured user metadata"""
 
-    def __init__(self, base_model: str, encoder_model: str = "sentence-transformers/all-MiniLM-L6-v2", default_rank: int = 16):
+    def __init__(
+        self,
+        base_model: str,
+        encoder_model: str = "sentence-transformers/all-MiniLM-L6-v2",
+        default_rank: int = 16,
+    ):
         self.base_model = base_model
         self.tokenizer = AutoTokenizer.from_pretrained(encoder_model)
         self.encoder = AutoModel.from_pretrained(encoder_model)
@@ -20,7 +25,9 @@ class MetadataToLoRA:
 
     def _init_projection_layers(self, rank: int):
         """Initialize projection layers with deterministic Xavier weights"""
-        embed_dim = self.encoder.config.hidden_size if hasattr(self.encoder, 'config') else 384
+        embed_dim = (
+            self.encoder.config.hidden_size if hasattr(self.encoder, "config") else 384
+        )
         d_in, d_out = self._get_model_dimensions()
 
         self.proj_lora_A = torch.nn.Linear(embed_dim, rank * d_in)
@@ -46,14 +53,18 @@ class MetadataToLoRA:
             self._init_projection_layers(rank)
             self.default_rank = rank
 
-        metadata_text = json.dumps(metadata, indent=2) if isinstance(metadata, dict) else str(metadata)
+        metadata_text = (
+            json.dumps(metadata, indent=2)
+            if isinstance(metadata, dict)
+            else str(metadata)
+        )
 
         inputs = self.tokenizer(
             metadata_text,
             return_tensors="pt",
             truncation=True,
             max_length=512,
-            padding=True
+            padding=True,
         )
 
         with torch.no_grad():
