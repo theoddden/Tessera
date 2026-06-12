@@ -3,7 +3,7 @@ use crate::api::models::GenerationContext;
 use crate::cache::semantic::SemanticCache;
 use crate::error::TesseraError;
 use crate::generation::client::HypernetworkClient;
-use ndarray::{ArrayD, Axis, IxDyn};
+use ndarray::{ArrayD, IxDyn};
 use safetensors::SafeTensors;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -123,7 +123,7 @@ impl SkillMixer {
 
     async fn find_relevant_skills(
         &self,
-        context: &GenerationContext,
+        _context: &GenerationContext,
     ) -> Result<Vec<AtomicSkill>, TesseraError> {
         let library = self.skill_library.read().await;
 
@@ -136,7 +136,7 @@ impl SkillMixer {
 
     async fn predict_mixing_weights(
         &self,
-        context: &GenerationContext,
+        _context: &GenerationContext,
         skills: &[AtomicSkill],
     ) -> Result<Vec<f32>, TesseraError> {
         // Simple heuristic: equal weights for now
@@ -171,9 +171,9 @@ impl SkillMixer {
         let first_bytes = skill_adapters.values().next().unwrap();
         let first_tensors = SafeTensors::deserialize(first_bytes)
             .map_err(|e| TesseraError::CorruptAdapter(e.to_string()))?;
-        let tensor_names: Vec<String> = first_tensors.tensors().map(|(name, _)| name).collect();
+        let tensor_names: Vec<String> = first_tensors.tensors().into_iter().map(|(name, _)| name.to_string()).collect();
 
-        for tensor_name in tensor_names {
+        for tensor_name in &tensor_names {
             let mut composed_tensor = None;
 
             // Iterate over skills and weights together (deterministic order)
@@ -181,7 +181,7 @@ impl SkillMixer {
                 if let Some(bytes) = skill_adapters.get(&skill.skill_id) {
                     let tensors = SafeTensors::deserialize(bytes)
                         .map_err(|e| TesseraError::CorruptAdapter(e.to_string()))?;
-                    if let Some(tensor) = tensors.tensor(&tensor_name) {
+                    if let Ok(tensor) = tensors.tensor(tensor_name) {
                         use safetensors::tensor::Dtype;
                         if tensor.dtype() != Dtype::F32 {
                             continue;
@@ -205,7 +205,7 @@ impl SkillMixer {
             }
 
             if let Some(tensor) = composed_tensor {
-                composed.insert(tensor_name, tensor);
+                composed.insert(tensor_name.clone(), tensor);
             }
         }
 
@@ -237,8 +237,8 @@ impl SkillMixer {
             tensors.push((name.clone(), tensor_view));
         }
 
-        safetensors::serialize(&tensors, &Default::default())
-            .map_err(|e| TesseraError::SerializationError(e.into()))
+        safetensors::serialize(tensors.into_iter(), &Default::default())
+            .map_err(|e| TesseraError::SerializationError(e.to_string()))
     }
 
     pub async fn list_skills(&self) -> Result<Vec<AtomicSkill>, TesseraError> {

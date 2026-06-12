@@ -1,11 +1,10 @@
 use crate::api::models::GenerationContext;
 use crate::error::TesseraError;
 use candle_core::{Device, Result as CandleResult, Tensor};
-use candle_transformers::models::bert::{BertModel, Config as BertConfig, Config};
-use candle_transformers::quantized::gguf_file;
-use hf_hub::{api::sync::Api, Repo, RepoType};
-use serde_json::Value;
-use std::path::PathBuf;
+use candle_nn::VarBuilder;
+use candle_transformers::models::bert::{BertModel, Config as BertConfig};
+use hf_hub::api::sync::Api;
+use safetensors::SafeTensors;
 use tokenizers::Tokenizer;
 
 pub struct Encoder {
@@ -17,24 +16,19 @@ pub struct Encoder {
 impl Encoder {
     pub async fn new(model_id: &str) -> Result<Self, TesseraError> {
         let api = Api::new()?;
-        let repo = Repo::with_revision(
-            model_id.to_string(),
-            RepoType::Model,
-            "refs/pr/15".to_string(),
-        );
 
         let config_path = api
-            .model(&repo)
+            .model(model_id.to_string())
             .get("config.json")
             .map_err(|e| TesseraError::EmbeddingError(e.to_string()))?;
 
         let tokenizer_path = api
-            .model(&repo)
+            .model(model_id.to_string())
             .get("tokenizer.json")
             .map_err(|e| TesseraError::EmbeddingError(e.to_string()))?;
 
         let model_path = api
-            .model(&repo)
+            .model(model_id.to_string())
             .get("model.safetensors")
             .map_err(|e| TesseraError::EmbeddingError(e.to_string()))?;
 
@@ -47,12 +41,23 @@ impl Encoder {
         )
         .map_err(|e| TesseraError::EmbeddingError(e.to_string()))?;
 
-        let vb = candle_nn::VarBuilder::from_safetensors(
-            &[model_path],
-            candle_core::DType::F32,
-            &device,
-        )
-        .map_err(|e| TesseraError::EmbeddingError(e.to_string()))?;
+        // Load safetensors and convert to VarBuilder
+        let model_bytes = std::fs::read(&model_path)
+            .map_err(|e| TesseraError::EmbeddingError(e.to_string()))?;
+        let tensors = SafeTensors::deserialize(&model_bytes)
+            .map_err(|e| TesseraError::EmbeddingError(e.to_string()))?;
+        
+        let mut tensor_map = std::collections::HashMap::new();
+        for (name, tensor) in tensors.tensors() {
+            let data: Vec<u8> = tensor.data().to_vec();
+            let shape = tensor.shape().to_vec();
+            let candle_tensor = Tensor::from_raw_buffer(&data, &shape, &device)
+                .map_err(|e| TesseraError::EmbeddingError(e.to_string()))?;
+            tensor_map.insert(name, candle_tensor);
+        }
+        
+        let vb = VarBuilder::from_tensors(tensor_map, candle_core::DType::F32, &device)
+            .map_err(|e| TesseraError::EmbeddingError(e.to_string()))?;
 
         let model = BertModel::load(vb, &config)
             .map_err(|e| TesseraError::EmbeddingError(e.to_string()))?;
@@ -87,7 +92,7 @@ impl Encoder {
 
         let output = self
             .model
-            .forward(&input_ids, &attention_mask)
+            .forward(&input_ids, &attention_mask, None)
             .map_err(|e| TesseraError::EmbeddingError(e.to_string()))?;
 
         let embedding = self
@@ -128,9 +133,9 @@ impl Encoder {
     }
 
     fn mean_pool(&self, output: &Tensor, attention_mask: &Tensor) -> CandleResult<Tensor> {
-        let attention_mask_expanded = attention_mask.unsqueeze(2).expand(output.dims())?;
+        let attention_mask_expanded = attention_mask.unsqueeze(2)?.expand(output.dims())?;
 
-        let sum = (output * attention_mask_expanded)?.sum(1)?;
+        let sum = (output * attention_mask_expanded).sum(1)?;
         let mask_sum = attention_mask_expanded.sum(1)?;
         let mean = sum.broadcast_div(&mask_sum)?;
 

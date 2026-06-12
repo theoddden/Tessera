@@ -1,4 +1,43 @@
 use thiserror::Error;
+use axum::{
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    Json,
+};
+
+impl From<hf_hub::api::sync::ApiError> for TesseraError {
+    fn from(err: hf_hub::api::sync::ApiError) -> Self {
+        TesseraError::HfHubError(err.to_string())
+    }
+}
+
+impl IntoResponse for TesseraError {
+    fn into_response(self) -> Response {
+        let (status, message) = match self {
+            TesseraError::HttpError(e) => (StatusCode::BAD_GATEWAY, e.to_string()),
+            TesseraError::SerializationError(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
+            TesseraError::QdrantError(e) => (StatusCode::SERVICE_UNAVAILABLE, e),
+            TesseraError::EmbeddingError(e) => (StatusCode::INTERNAL_SERVER_ERROR, e),
+            TesseraError::HypernetworkError(e) => (StatusCode::BAD_GATEWAY, e),
+            TesseraError::InvalidAdapter(e) => (StatusCode::BAD_REQUEST, e),
+            TesseraError::CorruptAdapter(e) => (StatusCode::BAD_REQUEST, e),
+            TesseraError::RankMismatch { expected, found } => (
+                StatusCode::BAD_REQUEST,
+                format!("Rank mismatch: expected {}, found {:?}", expected, found),
+            ),
+            TesseraError::DatabaseError(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
+            TesseraError::IoError(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
+            TesseraError::ConfigError(e) => (StatusCode::INTERNAL_SERVER_ERROR, e),
+            TesseraError::HfHubError(e) => (StatusCode::BAD_GATEWAY, e),
+        };
+
+        let body = Json(serde_json::json!({
+            "error": message,
+        }));
+
+        (status, body).into_response()
+    }
+}
 
 #[derive(Error, Debug)]
 pub enum TesseraError {
@@ -34,4 +73,7 @@ pub enum TesseraError {
 
     #[error("Config error: {0}")]
     ConfigError(String),
+
+    #[error("HuggingFace API error: {0}")]
+    HfHubError(String),
 }
