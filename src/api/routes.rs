@@ -7,7 +7,7 @@ use crate::generation::pipeline::GenerationPipeline;
 use axum::{
     extract::{Path, State},
     http::StatusCode,
-    response::{IntoResponse, Json, Response},
+    response::{IntoResponse, Json},
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
 use metrics_exporter_prometheus::PrometheusHandle;

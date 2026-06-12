@@ -4,7 +4,7 @@ use crate::api::models::GenerationContext;
 use crate::cache::semantic::SemanticCache;
 use crate::cache::store::CacheStore;
 use crate::error::TesseraError;
-use crate::generation::client::{HypernetworkClient, RawAdapterWeights};
+use crate::generation::client::HypernetworkClient;
 use std::sync::Arc;
 
 #[derive(Debug)]
