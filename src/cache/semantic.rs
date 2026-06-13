@@ -213,7 +213,8 @@ impl SemanticCache {
                 if let Some(point) = points.result.first() {
                     let current_count = point
                         .payload
-                        .get("hit_count")
+                        .as_ref()
+                        .and_then(|p| p.get("hit_count"))
                         .and_then(|v| v.as_integer())
                         .unwrap_or(0) as i64;
 
@@ -273,19 +274,25 @@ impl SemanticCache {
 
 fn extract_string(payload: &Payload, key: &str) -> String {
     payload
-        .get(key)
+        .as_ref()
+        .and_then(|p| p.get(key))
         .and_then(|v| v.as_str())
         .unwrap_or_default()
         .to_string()
 }
 
 fn extract_u32(payload: &Payload, key: &str) -> u32 {
-    payload.get(key).and_then(|v| v.as_u64()).unwrap_or(0) as u32
+    payload
+        .as_ref()
+        .and_then(|p| p.get(key))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0) as u32
 }
 
 fn extract_string_vec(payload: &Payload, key: &str) -> Vec<String> {
     payload
-        .get(key)
+        .as_ref()
+        .and_then(|p| p.get(key))
         .and_then(|v| v.as_array())
         .map(|arr| {
             arr.iter()
