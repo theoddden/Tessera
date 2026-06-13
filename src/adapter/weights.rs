@@ -70,11 +70,7 @@ impl AdapterStore {
 
         let mut adapter_ids = Vec::new();
 
-        while let Some(entry) = entries
-            .next_entry()
-            .await
-            .map_err(TesseraError::IoError)?
-        {
+        while let Some(entry) = entries.next_entry().await.map_err(TesseraError::IoError)? {
             let path = entry.path();
             if path
                 .extension()
