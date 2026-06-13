@@ -114,10 +114,8 @@ impl CacheStore {
             });
             match result {
                 Ok(meta) => Ok(Some(meta)),
-                Err(tokio_rusqlite::Error::Rusqlite(rusqlite::Error::QueryReturnedNoRows)) => {
-                    Ok(None)
-                }
-                Err(e) => Err(e),
+                Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+                Err(e) => Err(tokio_rusqlite::Error::Rusqlite(e)),
             }
         })
         .await
@@ -134,10 +132,8 @@ impl CacheStore {
             let result = stmt.query_row(params![adapter_id], |row| row.get(0));
             match result {
                 Ok(path) => Ok(Some(path)),
-                Err(tokio_rusqlite::Error::Rusqlite(rusqlite::Error::QueryReturnedNoRows)) => {
-                    Ok(None)
-                }
-                Err(e) => Err(e),
+                Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+                Err(e) => Err(tokio_rusqlite::Error::Rusqlite(e)),
             }
         })
         .await

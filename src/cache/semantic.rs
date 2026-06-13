@@ -1,5 +1,5 @@
 use crate::error::TesseraError;
-use qdrant_client::prelude::*;
+use qdrant_client::QdrantClient;
 use qdrant_client::qdrant::{Condition, Filter, PointStruct, SearchPoints};
 use serde_json::json;
 use std::sync::Arc;
