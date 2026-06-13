@@ -68,3 +68,11 @@ qdrant_data/
 # Test coverage
 .coverage
 htmlcov/
+
+# Internal development docs
+Terradev commands for Tessera benchmarking.txt
+Tessera Benchmark v0.0.1.py
+Tessera Critical Bug Fixes Completion 0.2.md
+Tessera Critical Bug Fixes Completion.md
+Commands for Tessera NO TERRADEV.txt
+Test Metadata for Tessera v0.1
