@@ -1,6 +1,7 @@
 use crate::error::TesseraError;
 use qdrant_client::qdrant::{Condition, Filter, PointStruct, SearchPoints};
-use qdrant_client::{Payload, QdrantClient};
+use qdrant_client::Payload;
+use qdrant_client::client::QdrantClient;
 use serde_json::json;
 use std::sync::Arc;
 use tokio_rusqlite::Connection;
@@ -179,7 +180,7 @@ impl SemanticCache {
             "created_at": chrono::Utc::now().to_rfc3339(),
         })
         .try_into()
-        .map_err(|e| TesseraError::SerializationError(e))?;
+        .map_err(|e| TesseraError::QdrantError(e.to_string()))?;
 
         self.client
             .upsert_points_simple(
@@ -213,8 +214,8 @@ impl SemanticCache {
                 if let Some(point) = points.result.first() {
                     let current_count = point
                         .payload
-                        .as_ref()
-                        .and_then(|p| p.get("hit_count"))
+                        .0
+                        .get("hit_count")
                         .and_then(|v| v.as_integer())
                         .unwrap_or(0) as i64;
 
@@ -274,8 +275,8 @@ impl SemanticCache {
 
 fn extract_string(payload: &Payload, key: &str) -> String {
     payload
-        .as_ref()
-        .and_then(|p| p.get(key))
+        .0
+        .get(key)
         .and_then(|v| v.as_str())
         .unwrap_or_default()
         .to_string()
@@ -283,16 +284,16 @@ fn extract_string(payload: &Payload, key: &str) -> String {
 
 fn extract_u32(payload: &Payload, key: &str) -> u32 {
     payload
-        .as_ref()
-        .and_then(|p| p.get(key))
+        .0
+        .get(key)
         .and_then(|v| v.as_u64())
         .unwrap_or(0) as u32
 }
 
 fn extract_string_vec(payload: &Payload, key: &str) -> Vec<String> {
     payload
-        .as_ref()
-        .and_then(|p| p.get(key))
+        .0
+        .get(key)
         .and_then(|v| v.as_array())
         .map(|arr| {
             arr.iter()
