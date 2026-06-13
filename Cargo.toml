@@ -22,7 +22,7 @@ candle-nn = "0.10"
 candle-transformers = "0.10"
 
 # Vector DB
-qdrant-client = "1.18"
+qdrant-client = "1.9"
 
 # HTTP client (hypernetwork calls)
 reqwest = { version = "0.12", features = ["json", "stream"] }
