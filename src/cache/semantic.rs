@@ -1,6 +1,6 @@
 use crate::error::TesseraError;
 use qdrant_client::qdrant::{Condition, Filter, PointStruct, SearchPoints};
-use qdrant_client::qdrant_client::QdrantClient;
+use qdrant_client::{Payload, QdrantClient};
 use serde_json::json;
 use std::sync::Arc;
 use tokio_rusqlite::Connection;
@@ -165,7 +165,7 @@ impl SemanticCache {
         let archetype_id = uuid::Uuid::new_v4().to_string();
         let label = self.auto_label(source_type);
 
-        let payload: qdrant_client::Payload = json!({
+        let payload: Payload = json!({
             "adapter_id": adapter_id,
             "adapter_path": adapter_path,
             "archetype_id": archetype_id,
@@ -224,20 +224,18 @@ impl SemanticCache {
                         .set_payload(
                             &collection,
                             None,
-                            &qdrant_client::qdrant::SetPayloadOperationBuilder::new(
-                                qdrant_client::qdrant::PointsIdsList {
-                                    ids: vec![id.into()],
-                                },
-                            )
-                            .payload(
+                            qdrant_client::qdrant::PointsIdsList {
+                                ids: vec![id.into()],
+                            },
+                            None,
+                            Some(
                                 json!({"hit_count": new_count})
                                     .try_into()
-                                    .unwrap_or_default(),
-                            )
-                            .build(),
-                            None,
+                                    .map_err(|e| TesseraError::QdrantError(e.to_string()))?,
+                            ),
                         )
-                        .await;
+                        .await
+                        .map_err(|e| TesseraError::QdrantError(e.to_string()))?;
                 }
             }
         });
@@ -273,7 +271,7 @@ impl SemanticCache {
     }
 }
 
-fn extract_string(payload: &qdrant_client::Payload, key: &str) -> String {
+fn extract_string(payload: &Payload, key: &str) -> String {
     payload
         .get(key)
         .and_then(|v| v.as_str())
@@ -281,11 +279,11 @@ fn extract_string(payload: &qdrant_client::Payload, key: &str) -> String {
         .to_string()
 }
 
-fn extract_u32(payload: &qdrant_client::Payload, key: &str) -> u32 {
+fn extract_u32(payload: &Payload, key: &str) -> u32 {
     payload.get(key).and_then(|v| v.as_u64()).unwrap_or(0) as u32
 }
 
-fn extract_string_vec(payload: &qdrant_client::Payload, key: &str) -> Vec<String> {
+fn extract_string_vec(payload: &Payload, key: &str) -> Vec<String> {
     payload
         .get(key)
         .and_then(|v| v.as_array())
