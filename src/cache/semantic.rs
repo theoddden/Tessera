@@ -283,11 +283,7 @@ fn extract_string(payload: &Payload, key: &str) -> String {
 }
 
 fn extract_u32(payload: &Payload, key: &str) -> u32 {
-    payload
-        .0
-        .get(key)
-        .and_then(|v| v.as_u64())
-        .unwrap_or(0) as u32
+    payload.0.get(key).and_then(|v| v.as_u64()).unwrap_or(0) as u32
 }
 
 fn extract_string_vec(payload: &Payload, key: &str) -> Vec<String> {
