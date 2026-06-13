@@ -1,6 +1,6 @@
 use crate::error::TesseraError;
 use qdrant_client::qdrant::{Condition, Filter, PointStruct, SearchPoints};
-use qdrant_client::QdrantClient;
+use qdrant_client::qdrant_client::QdrantClient;
 use serde_json::json;
 use std::sync::Arc;
 use tokio_rusqlite::Connection;
@@ -165,7 +165,7 @@ impl SemanticCache {
         let archetype_id = uuid::Uuid::new_v4().to_string();
         let label = self.auto_label(source_type);
 
-        let payload: qdrant_client::qdrant::Payload = json!({
+        let payload: qdrant_client::Payload = json!({
             "adapter_id": adapter_id,
             "adapter_path": adapter_path,
             "archetype_id": archetype_id,
@@ -224,22 +224,17 @@ impl SemanticCache {
                         .set_payload(
                             &collection,
                             None,
-                            &qdrant_client::qdrant::SetPayload {
-                                payload: Some(
-                                    json!({"hit_count": new_count})
-                                        .try_into()
-                                        .unwrap_or_default(),
-                                ),
-                                points: Some(qdrant_client::qdrant::PointsSelector {
-                                    points_selector_one_of: Some(
-                                        qdrant_client::qdrant::points_selector::PointsSelectorOneOf::Points(
-                                            qdrant_client::qdrant::PointsIdsList {
-                                                ids: vec![id.into()],
-                                            },
-                                        ),
-                                    ),
-                                }),
-                            },
+                            &qdrant_client::qdrant::SetPayloadOperationBuilder::new(
+                                qdrant_client::qdrant::PointsIdsList {
+                                    ids: vec![id.into()],
+                                },
+                            )
+                            .payload(
+                                json!({"hit_count": new_count})
+                                    .try_into()
+                                    .unwrap_or_default(),
+                            )
+                            .build(),
                             None,
                         )
                         .await;
@@ -278,7 +273,7 @@ impl SemanticCache {
     }
 }
 
-fn extract_string(payload: &qdrant_client::qdrant::Payload, key: &str) -> String {
+fn extract_string(payload: &qdrant_client::Payload, key: &str) -> String {
     payload
         .get(key)
         .and_then(|v| v.as_str())
@@ -286,11 +281,11 @@ fn extract_string(payload: &qdrant_client::qdrant::Payload, key: &str) -> String
         .to_string()
 }
 
-fn extract_u32(payload: &qdrant_client::qdrant::Payload, key: &str) -> u32 {
+fn extract_u32(payload: &qdrant_client::Payload, key: &str) -> u32 {
     payload.get(key).and_then(|v| v.as_u64()).unwrap_or(0) as u32
 }
 
-fn extract_string_vec(payload: &qdrant_client::qdrant::Payload, key: &str) -> Vec<String> {
+fn extract_string_vec(payload: &qdrant_client::Payload, key: &str) -> Vec<String> {
     payload
         .get(key)
         .and_then(|v| v.as_array())
