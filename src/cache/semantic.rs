@@ -1,6 +1,6 @@
 use crate::error::TesseraError;
-use qdrant_client::QdrantClient;
 use qdrant_client::qdrant::{Condition, Filter, PointStruct, SearchPoints};
+use qdrant_client::QdrantClient;
 use serde_json::json;
 use std::sync::Arc;
 use tokio_rusqlite::Connection;
