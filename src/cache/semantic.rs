@@ -34,10 +34,7 @@ impl SemanticCache {
     ) -> Result<Self, TesseraError> {
         let client = QdrantClient::from_url(qdrant_url).build()?;
 
-        let db = Arc::new(
-            Connection::open(db_path)
-                .map_err(|e| TesseraError::DatabaseError(e))?,
-        );
+        let db = Arc::new(Connection::open(db_path).map_err(|e| TesseraError::DatabaseError(e))?);
 
         let cache = SemanticCache {
             client,
@@ -64,28 +61,24 @@ impl SemanticCache {
 
         if !exists {
             self.client
-                .create_collection(&qdrant_client::qdrant::CreateCollection {
-                    collection_name: self.collection.clone(),
-                    vectors_config: Some(
-                        qdrant_client::qdrant::VectorsConfig {
-                            config: Some(
-                                qdrant_client::qdrant::vectors_config::Config::Params(
-                                    qdrant_client::qdrant::VectorParams {
-                                        size: self.embedding_dim,
-                                        distance: qdrant_client::qdrant::Distance::Cosine
-                                            .into(),
-                                        ..Default::default()
-                                    },
-                                ),
-                            ),
-                        },
-                    ),
-                    ..Default::default()
-                },
-                None,
-            )
-            .await
-            .map_err(|e| TesseraError::QdrantError(e.to_string()))?;
+                .create_collection(
+                    &qdrant_client::qdrant::CreateCollection {
+                        collection_name: self.collection.clone(),
+                        vectors_config: Some(qdrant_client::qdrant::VectorsConfig {
+                            config: Some(qdrant_client::qdrant::vectors_config::Config::Params(
+                                qdrant_client::qdrant::VectorParams {
+                                    size: self.embedding_dim,
+                                    distance: qdrant_client::qdrant::Distance::Cosine.into(),
+                                    ..Default::default()
+                                },
+                            )),
+                        }),
+                        ..Default::default()
+                    },
+                    None,
+                )
+                .await
+                .map_err(|e| TesseraError::QdrantError(e.to_string()))?;
         }
 
         Ok(())
@@ -121,10 +114,7 @@ impl SemanticCache {
         embedding: &[f32],
         base_model: &str,
     ) -> Result<Option<CacheHit>, TesseraError> {
-        let filter = Filter::must([Condition::matches(
-            "base_model",
-            base_model.to_string(),
-        )]);
+        let filter = Filter::must([Condition::matches("base_model", base_model.to_string())]);
 
         let results = self
             .client
@@ -212,13 +202,7 @@ impl SemanticCache {
             // Read-modify-write pattern for proper increment
             // First, retrieve current hit_count
             let points_result = client
-                .retrieve_points(
-                    &collection,
-                    None,
-                    vec![id.clone().into()],
-                    true,
-                    None,
-                )
+                .retrieve_points(&collection, None, vec![id.clone().into()], true, None)
                 .await;
 
             if let Ok(points) = points_result {
@@ -228,9 +212,9 @@ impl SemanticCache {
                         .get("hit_count")
                         .and_then(|v| v.as_integer())
                         .unwrap_or(0) as i64;
-                    
+
                     let new_count = current_count + 1;
-                    
+
                     // Update with incremented value
                     let _ = client
                         .set_payload(
@@ -271,10 +255,7 @@ impl SemanticCache {
         Ok(0)
     }
 
-    pub async fn mark_prefetch_priority(
-        &self,
-        _archetypes: &[String],
-    ) -> Result<(), TesseraError> {
+    pub async fn mark_prefetch_priority(&self, _archetypes: &[String]) -> Result<(), TesseraError> {
         // TODO: Mark archetypes for prefetch
         Ok(())
     }
@@ -298,10 +279,7 @@ fn extract_string(payload: &Payload, key: &str) -> String {
 }
 
 fn extract_u32(payload: &Payload, key: &str) -> u32 {
-    payload
-        .get(key)
-        .and_then(|v| v.as_u64())
-        .unwrap_or(0) as u32
+    payload.get(key).and_then(|v| v.as_u64()).unwrap_or(0) as u32
 }
 
 fn extract_string_vec(payload: &Payload, key: &str) -> Vec<String> {

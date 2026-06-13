@@ -90,7 +90,10 @@ impl CacheStore {
         .map_err(|e| TesseraError::DatabaseError(e))
     }
 
-    pub async fn get_adapter_metadata(&self, adapter_id: &str) -> Result<Option<AdapterMetadataRow>, TesseraError> {
+    pub async fn get_adapter_metadata(
+        &self,
+        adapter_id: &str,
+    ) -> Result<Option<AdapterMetadataRow>, TesseraError> {
         let db = self.db.clone();
         let adapter_id = adapter_id.to_string();
 
@@ -124,7 +127,8 @@ impl CacheStore {
         let adapter_id = adapter_id.to_string();
 
         db.call(move |conn| {
-            let mut stmt = conn.prepare("SELECT adapter_path FROM adapters WHERE adapter_id = ?1")?;
+            let mut stmt =
+                conn.prepare("SELECT adapter_path FROM adapters WHERE adapter_id = ?1")?;
             let result = stmt.query_row(params![adapter_id], |row| row.get(0));
             match result {
                 Ok(path) => Ok(Some(path)),
