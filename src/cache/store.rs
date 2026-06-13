@@ -114,7 +114,9 @@ impl CacheStore {
             });
             match result {
                 Ok(meta) => Ok(Some(meta)),
-                Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+                Err(tokio_rusqlite::Error::Rusqlite(rusqlite::Error::QueryReturnedNoRows)) => {
+                    Ok(None)
+                }
                 Err(e) => Err(e),
             }
         })
@@ -132,7 +134,9 @@ impl CacheStore {
             let result = stmt.query_row(params![adapter_id], |row| row.get(0));
             match result {
                 Ok(path) => Ok(Some(path)),
-                Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+                Err(tokio_rusqlite::Error::Rusqlite(rusqlite::Error::QueryReturnedNoRows)) => {
+                    Ok(None)
+                }
                 Err(e) => Err(e),
             }
         })

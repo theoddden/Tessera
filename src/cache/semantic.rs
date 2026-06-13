@@ -1,5 +1,6 @@
 use crate::error::TesseraError;
-use qdrant_client::qdrant::{Condition, Filter, PointStruct, SearchPoints, Value};
+use qdrant_client::prelude::*;
+use qdrant_client::qdrant::{Condition, Filter, PointStruct, SearchPoints};
 use serde_json::json;
 use std::sync::Arc;
 use tokio_rusqlite::Connection;
@@ -164,7 +165,7 @@ impl SemanticCache {
         let archetype_id = uuid::Uuid::new_v4().to_string();
         let label = self.auto_label(source_type);
 
-        let payload: Payload = json!({
+        let payload: qdrant_client::qdrant::Payload = json!({
             "adapter_id": adapter_id,
             "adapter_path": adapter_path,
             "archetype_id": archetype_id,
@@ -231,8 +232,8 @@ impl SemanticCache {
                                 ),
                                 points: Some(qdrant_client::qdrant::PointsSelector {
                                     points_selector_one_of: Some(
-                                        qdrant_client::qdrant::points_selector::PointsSelectorOneof::Points(
-                                            qdrant_client::qdrant::PointIdsList {
+                                        qdrant_client::qdrant::points_selector::PointsSelectorOneOf::Points(
+                                            qdrant_client::qdrant::PointsIdsList {
                                                 ids: vec![id.into()],
                                             },
                                         ),
@@ -277,7 +278,7 @@ impl SemanticCache {
     }
 }
 
-fn extract_string(payload: &Payload, key: &str) -> String {
+fn extract_string(payload: &qdrant_client::qdrant::Payload, key: &str) -> String {
     payload
         .get(key)
         .and_then(|v| v.as_str())
@@ -285,11 +286,11 @@ fn extract_string(payload: &Payload, key: &str) -> String {
         .to_string()
 }
 
-fn extract_u32(payload: &Payload, key: &str) -> u32 {
+fn extract_u32(payload: &qdrant_client::qdrant::Payload, key: &str) -> u32 {
     payload.get(key).and_then(|v| v.as_u64()).unwrap_or(0) as u32
 }
 
-fn extract_string_vec(payload: &Payload, key: &str) -> Vec<String> {
+fn extract_string_vec(payload: &qdrant_client::qdrant::Payload, key: &str) -> Vec<String> {
     payload
         .get(key)
         .and_then(|v| v.as_array())
