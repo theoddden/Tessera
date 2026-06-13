@@ -1,6 +1,5 @@
 use crate::error::TesseraError;
-use qdrant_client::prelude::*;
-use qdrant_client::qdrant::{Condition, Filter, Payload, PointStruct, SearchPoints};
+use qdrant_client::qdrant::{Condition, Filter, PointStruct, SearchPoints, Value};
 use serde_json::json;
 use std::sync::Arc;
 use tokio_rusqlite::Connection;
@@ -34,7 +33,11 @@ impl SemanticCache {
     ) -> Result<Self, TesseraError> {
         let client = QdrantClient::from_url(qdrant_url).build()?;
 
-        let db = Arc::new(Connection::open(db_path).map_err(|e| TesseraError::DatabaseError(e))?);
+        let db = Arc::new(
+            Connection::open(db_path)
+                .await
+                .map_err(|e| TesseraError::DatabaseError(e))?,
+        );
 
         let cache = SemanticCache {
             client,
@@ -227,7 +230,7 @@ impl SemanticCache {
                                         .unwrap_or_default(),
                                 ),
                                 points: Some(qdrant_client::qdrant::PointsSelector {
-                                    points_selector_oneof: Some(
+                                    points_selector_one_of: Some(
                                         qdrant_client::qdrant::points_selector::PointsSelectorOneof::Points(
                                             qdrant_client::qdrant::PointIdsList {
                                                 ids: vec![id.into()],
@@ -258,6 +261,10 @@ impl SemanticCache {
     pub async fn mark_prefetch_priority(&self, _archetypes: &[String]) -> Result<(), TesseraError> {
         // TODO: Mark archetypes for prefetch
         Ok(())
+    }
+
+    pub async fn is_connected(&self) -> bool {
+        self.client.list_collections().await.is_ok()
     }
 
     fn auto_label(&self, source_type: &str) -> String {

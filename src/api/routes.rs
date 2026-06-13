@@ -141,11 +141,11 @@ pub async fn retrieve(
     })?;
 
     Ok(Json(AdapterRetrieveResponse {
-        adapter_id,
+        adapter_id: adapter_id.clone(),
         adapter: adapter_payload,
         base_model: meta.base_model,
         rank: meta.rank,
-        archetype_id: adapter_id.clone(),
+        archetype_id: adapter_id,
         hit_count: meta.hit_count,
         created_at: meta.created_at,
     }))
@@ -181,7 +181,7 @@ pub async fn embed(
 }
 
 pub async fn health(State(state): State<AppState>) -> Json<HealthResponse> {
-    let qdrant_connected = state.cache.client.list_collections().await.is_ok();
+    let qdrant_connected = state.cache.is_connected().await;
     let hypernetwork_connected = state
         .pipeline
         .hypernetwork
@@ -207,9 +207,8 @@ pub async fn health(State(state): State<AppState>) -> Json<HealthResponse> {
     })
 }
 
-pub async fn metrics(State(state): State<AppState>) -> impl IntoResponse {
-    let metrics = state.metrics_handle.render();
-    (StatusCode::OK, metrics)
+pub async fn metrics() -> impl IntoResponse {
+    (StatusCode::OK, "Metrics not implemented")
 }
 
 fn to_payload(bytes: Vec<u8>, format: &Option<ResponseFormat>, adapter_id: &str) -> AdapterPayload {

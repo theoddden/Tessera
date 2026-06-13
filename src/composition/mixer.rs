@@ -219,7 +219,7 @@ impl SkillMixer {
     fn serialize_composed(
         &self,
         composed: &HashMap<String, ArrayD<f32>>,
-        rank: u32,
+        _rank: u32,
     ) -> Result<Vec<u8>, TesseraError> {
         use safetensors::tensor::{Dtype, TensorView};
 

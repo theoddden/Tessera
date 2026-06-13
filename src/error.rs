@@ -68,7 +68,7 @@ pub enum TesseraError {
     RankMismatch { expected: u32, found: Vec<usize> },
 
     #[error("Database error: {0}")]
-    DatabaseError(#[from] rusqlite::Error),
+    DatabaseError(#[from] tokio_rusqlite::Error),
 
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),

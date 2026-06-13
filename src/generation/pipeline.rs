@@ -1,7 +1,6 @@
 use crate::adapter::validate::AdapterValidator;
 use crate::adapter::weights::AdapterStore;
 use crate::api::models::GenerationContext;
-use crate::cache::semantic::SemanticCache;
 use crate::cache::store::CacheStore;
 use crate::error::TesseraError;
 use crate::generation::client::HypernetworkClient;

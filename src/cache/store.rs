@@ -1,5 +1,5 @@
 use crate::error::TesseraError;
-use rusqlite::{params, Connection};
+use rusqlite::params;
 use std::sync::Arc;
 use tokio_rusqlite::Connection as AsyncConnection;
 
