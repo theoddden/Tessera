@@ -1,5 +1,5 @@
 # Multi-stage build for Tessera Rust core
-FROM rust:nightly-slim as builder
+FROM rust:nightly-2024-12-01-slim as builder
 
 WORKDIR /app
 
