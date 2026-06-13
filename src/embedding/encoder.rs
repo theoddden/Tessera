@@ -103,9 +103,9 @@ impl Encoder {
             .l2_normalize(&embedding)
             .map_err(|e| TesseraError::EmbeddingError(e.to_string()))?;
 
-        Ok(normalized
+        normalized
             .to_vec1::<f32>()
-            .map_err(|e| TesseraError::EmbeddingError(e.to_string()))?)
+            .map_err(|e| TesseraError::EmbeddingError(e.to_string()))
     }
 
     fn serialize_context(&self, ctx: &GenerationContext) -> String {
@@ -119,7 +119,7 @@ impl Encoder {
         }
         if let Some(meta) = &ctx.metadata {
             if let Some(keys) = meta.as_object() {
-                let summary: Vec<String> = keys.keys().take(10).map(|k| k.clone()).collect();
+                let summary: Vec<String> = keys.keys().take(10).cloned().collect();
                 parts.push(format!("fields: {}", summary.join(", ")));
             }
         }

@@ -5,6 +5,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct ArchitectureSignature {
     pub model_id: String,
     pub signature_vector: Vec<f32>,
@@ -12,6 +13,7 @@ pub struct ArchitectureSignature {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct DecoderHead {
     model_id: String,
     // In production, this would contain actual model weights
@@ -19,6 +21,7 @@ pub struct DecoderHead {
     projection_weights: Option<Vec<f32>>,
 }
 
+#[allow(dead_code)]
 impl DecoderHead {
     pub fn new(model_id: &str) -> Self {
         DecoderHead {
@@ -58,11 +61,13 @@ impl DecoderHead {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct SharedEncoder {
     // In production, this would contain the actual encoder model
     latent_dim: usize,
 }
 
+#[allow(dead_code)]
 impl SharedEncoder {
     pub fn new(latent_dim: usize) -> Self {
         SharedEncoder { latent_dim }
@@ -81,17 +86,20 @@ impl SharedEncoder {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct AdapterExample {
     pub context: GenerationContext,
     pub base_model: String,
     pub adapter_weights: Vec<u8>,
 }
 
+#[allow(dead_code)]
 pub struct ProbeActivationCache {
     probes: Vec<String>,
     cache: HashMap<String, ArchitectureSignature>,
 }
 
+#[allow(dead_code)]
 impl ProbeActivationCache {
     pub fn new() -> Self {
         ProbeActivationCache {
@@ -139,12 +147,14 @@ impl ProbeActivationCache {
     }
 }
 
+#[allow(dead_code)]
 pub struct CrossArchHypernetwork {
     encoder: SharedEncoder,
     decoder_registry: HashMap<String, DecoderHead>,
     probe_cache: Arc<Mutex<ProbeActivationCache>>,
 }
 
+#[allow(dead_code)]
 impl CrossArchHypernetwork {
     pub fn new(latent_dim: usize) -> Self {
         CrossArchHypernetwork {

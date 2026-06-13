@@ -5,6 +5,12 @@ use axum::{
 };
 use thiserror::Error;
 
+impl From<anyhow::Error> for TesseraError {
+    fn from(err: anyhow::Error) -> Self {
+        TesseraError::QdrantError(err.to_string())
+    }
+}
+
 impl From<hf_hub::api::sync::ApiError> for TesseraError {
     fn from(err: hf_hub::api::sync::ApiError) -> Self {
         TesseraError::HfHubError(err.to_string())
@@ -62,6 +68,7 @@ pub enum TesseraError {
     InvalidAdapter(String),
 
     #[error("Corrupt adapter: {0}")]
+    #[allow(dead_code)]
     CorruptAdapter(String),
 
     #[error("Rank mismatch: expected {expected}, found {found:?}")]
@@ -74,6 +81,7 @@ pub enum TesseraError {
     IoError(#[from] std::io::Error),
 
     #[error("Config error: {0}")]
+    #[allow(dead_code)]
     ConfigError(String),
 
     #[error("HuggingFace API error: {0}")]

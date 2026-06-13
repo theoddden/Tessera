@@ -108,7 +108,7 @@ impl AdapterValidator {
         let avg_norm = total_norm / count as f32;
 
         // Normalize to 0-1 range (heuristic)
-        let quality = (avg_norm / 100.0).min(1.0).max(0.0);
+        let quality = (avg_norm / 100.0).clamp(0.0, 1.0);
 
         Ok(quality)
     }

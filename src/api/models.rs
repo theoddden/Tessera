@@ -3,10 +3,12 @@ use serde_json::Value;
 
 #[derive(Debug, Deserialize)]
 pub struct GenerateRequest {
+    #[allow(dead_code)]
     pub user_id: String,
     pub context: GenerationContext,
     pub base_model: String,
     pub target_rank: Option<u32>,
+    #[allow(dead_code)]
     pub hypernetwork_url: Option<String>,
     pub response_format: Option<ResponseFormat>,
 }

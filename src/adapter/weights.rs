@@ -11,7 +11,7 @@ impl AdapterStore {
         let path = PathBuf::from(base_path);
 
         if !path.exists() {
-            std::fs::create_dir_all(&path).map_err(|e| TesseraError::IoError(e))?;
+            std::fs::create_dir_all(&path).map_err(TesseraError::IoError)?;
         }
 
         Ok(AdapterStore { base_path: path })
@@ -26,7 +26,7 @@ impl AdapterStore {
         // Async write — tokio fs
         tokio::fs::write(&path, bytes)
             .await
-            .map_err(|e| TesseraError::IoError(e))?;
+            .map_err(TesseraError::IoError)?;
 
         Ok(path)
     }
@@ -35,7 +35,7 @@ impl AdapterStore {
         // Zero-copy read where possible
         let bytes = tokio::fs::read(adapter_path)
             .await
-            .map_err(|e| TesseraError::IoError(e))?;
+            .map_err(TesseraError::IoError)?;
 
         // Validate on load
         SafeTensors::deserialize(&bytes)
@@ -44,6 +44,7 @@ impl AdapterStore {
         Ok(bytes)
     }
 
+    #[allow(dead_code)]
     pub async fn load_by_id(&self, adapter_id: &str) -> Result<Vec<u8>, TesseraError> {
         let path = self.base_path.join(format!("{}.safetensors", adapter_id));
         self.load(path.to_str().unwrap()).await
@@ -55,23 +56,24 @@ impl AdapterStore {
         if path.exists() {
             tokio::fs::remove_file(&path)
                 .await
-                .map_err(|e| TesseraError::IoError(e))?;
+                .map_err(TesseraError::IoError)?;
         }
 
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub async fn list(&self) -> Result<Vec<String>, TesseraError> {
         let mut entries = tokio::fs::read_dir(&self.base_path)
             .await
-            .map_err(|e| TesseraError::IoError(e))?;
+            .map_err(TesseraError::IoError)?;
 
         let mut adapter_ids = Vec::new();
 
         while let Some(entry) = entries
             .next_entry()
             .await
-            .map_err(|e| TesseraError::IoError(e))?
+            .map_err(TesseraError::IoError)?
         {
             let path = entry.path();
             if path

@@ -12,7 +12,7 @@ impl CacheStore {
         let db = Arc::new(
             AsyncConnection::open(path)
                 .await
-                .map_err(|e| TesseraError::DatabaseError(e))?,
+                .map_err(TesseraError::DatabaseError)?,
         );
 
         let db_clone = db.clone();
@@ -42,7 +42,7 @@ impl CacheStore {
                 Ok(())
             })
             .await
-            .map_err(|e| TesseraError::DatabaseError(e))?;
+            .map_err(TesseraError::DatabaseError)?;
 
         Ok(CacheStore { db })
     }
@@ -72,7 +72,7 @@ impl CacheStore {
             Ok(())
         })
         .await
-        .map_err(|e| TesseraError::DatabaseError(e))
+        .map_err(TesseraError::DatabaseError)
     }
 
     pub async fn increment_hit_count(&self, adapter_id: &str) -> Result<(), TesseraError> {
@@ -87,7 +87,7 @@ impl CacheStore {
             Ok(())
         })
         .await
-        .map_err(|e| TesseraError::DatabaseError(e))
+        .map_err(TesseraError::DatabaseError)
     }
 
     pub async fn get_adapter_metadata(
@@ -119,7 +119,7 @@ impl CacheStore {
             }
         })
         .await
-        .map_err(|e| TesseraError::DatabaseError(e))
+        .map_err(TesseraError::DatabaseError)
     }
 
     pub async fn get_adapter_path(&self, adapter_id: &str) -> Result<Option<String>, TesseraError> {
@@ -137,7 +137,7 @@ impl CacheStore {
             }
         })
         .await
-        .map_err(|e| TesseraError::DatabaseError(e))
+        .map_err(TesseraError::DatabaseError)
     }
 
     pub async fn get_stats(&self) -> Result<CacheStats, TesseraError> {
@@ -162,11 +162,12 @@ impl CacheStore {
             })
         })
         .await
-        .map_err(|e| TesseraError::DatabaseError(e))
+        .map_err(TesseraError::DatabaseError)
     }
 }
 
 #[derive(Debug, Default)]
+#[allow(dead_code)]
 pub struct CacheStats {
     pub total_adapters: u64,
     pub total_hits: u64,
@@ -174,6 +175,7 @@ pub struct CacheStats {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct AdapterMetadataRow {
     pub adapter_id: String,
     pub adapter_path: String,

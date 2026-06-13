@@ -67,7 +67,7 @@ async fn main() -> anyhow::Result<()> {
     prefetcher.set_pipeline(pipeline.clone());
     let prefetcher = Arc::new(prefetcher);
 
-    let skill_mixer = Arc::new(SkillMixer::new(
+    let _skill_mixer = Arc::new(SkillMixer::new(
         adapter_store.clone(),
         cache.clone(),
         hypernetwork.clone(),

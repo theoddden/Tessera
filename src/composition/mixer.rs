@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct AtomicSkill {
     pub skill_id: String,
     pub skill_name: String,
@@ -18,6 +19,7 @@ pub struct AtomicSkill {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct CompositionResult {
     pub adapter_id: String,
     pub composed_weights: Vec<u8>,
@@ -26,6 +28,7 @@ pub struct CompositionResult {
     pub rank: u32,
 }
 
+#[allow(dead_code)]
 pub struct SkillMixer {
     adapter_store: Arc<AdapterStore>,
     semantic_cache: Arc<SemanticCache>,
@@ -33,6 +36,7 @@ pub struct SkillMixer {
     skill_library: Arc<tokio::sync::RwLock<HashMap<String, AtomicSkill>>>,
 }
 
+#[allow(dead_code)]
 impl SkillMixer {
     pub fn new(
         adapter_store: Arc<AdapterStore>,
@@ -241,9 +245,8 @@ impl SkillMixer {
             tensors.push((name.clone(), tensor_view));
         }
 
-        safetensors::serialize(tensors.into_iter(), &Default::default()).map_err(|e| {
-            TesseraError::SerializationError(serde_json::Error::io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+        safetensors::serialize(tensors, &Default::default()).map_err(|e| {
+            TesseraError::SerializationError(serde_json::Error::io(std::io::Error::other(
                 e.to_string(),
             )))
         })

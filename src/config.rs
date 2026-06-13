@@ -6,6 +6,7 @@ use std::env;
 pub struct Config {
     pub port: u16,
     pub qdrant_url: String,
+    #[allow(dead_code)]
     pub qdrant_collection: String,
     pub similarity_threshold: f32,
     pub embedding_model: String,

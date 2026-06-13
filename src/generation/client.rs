@@ -27,6 +27,7 @@ impl std::fmt::Display for GenerationMode {
 pub struct RawAdapterWeights {
     pub bytes: Vec<u8>,
     pub rank: u32,
+    #[allow(dead_code)]
     pub base_model: String,
     pub source_type: String,
 }

@@ -74,10 +74,10 @@ impl GenerationPipeline {
             )
             .await;
 
-        if cache_result.is_err() {
+        if let Err(e) = cache_result {
             // Cleanup: delete the saved file if cache recording failed
             let _ = self.adapter_store.delete(&adapter_id).await;
-            return Err(cache_result.unwrap_err());
+            return Err(e);
         }
 
         // Build vLLM args

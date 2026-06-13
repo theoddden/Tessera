@@ -9,7 +9,9 @@ use tokio::sync::RwLock;
 
 #[derive(Clone)]
 pub struct SessionEvent {
+    #[allow(dead_code)]
     pub archetype_id: String,
+    #[allow(dead_code)]
     pub timestamp: DateTime<Utc>,
     pub domain: String,
 }
@@ -74,7 +76,7 @@ impl PredictivePrefetcher {
         }
 
         let mut sorted: Vec<(String, u64)> = domain_counts.into_iter().collect();
-        sorted.sort_by(|a, b| b.1.cmp(&a.1));
+        sorted.sort_by_key(|b| std::cmp::Reverse(b.1));
 
         let top_domains: Vec<String> = sorted
             .into_iter()
@@ -109,6 +111,7 @@ impl PredictivePrefetcher {
         Ok(top_domains)
     }
 
+    #[allow(dead_code)]
     pub async fn record(&self, event: SessionEvent) {
         let mut history = self.history.write().await;
         history.push_back(event);
