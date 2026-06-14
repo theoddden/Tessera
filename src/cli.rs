@@ -127,12 +127,15 @@ pub async fn run() -> anyhow::Result<()> {
         Some(Commands::Health { url }) => health_check(url).await,
         Some(Commands::List { base_model }) => list_adapters(base_model).await,
         Some(Commands::Cache { action }) => cache_action(action).await,
-        Some(Commands::Version) => Ok(show_version()),
+        Some(Commands::Version) => {
+            show_version();
+            Ok(())
+        }
         Some(Commands::Lorax { action }) => lorax_action(action).await,
         Some(Commands::Peft { action }) => peft_action(action).await,
         None => {
             // No subcommand provided, show help
-            println!("Tessera v0.1.0");
+            println!("Tessera v0.2.0");
             println!("Use --help for usage information");
             Ok(())
         }
@@ -175,7 +178,7 @@ async fn health_check(url: String) -> anyhow::Result<()> {
     println!("Checking health at: {}", url);
 
     let client = reqwest::Client::new();
-    let response = client.get(&format!("{}/health", url)).send().await?;
+    let response = client.get(format!("{}/health", url)).send().await?;
 
     if response.status().is_success() {
         let health: serde_json::Value = response.json().await?;
