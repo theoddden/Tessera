@@ -1,4 +1,4 @@
-# Tessera v0.2.0
+# Tessera v0.2.8
 
 **Free, open-source LoRA adapter generation API. Metadata in → LoRA adapter out → fast.**
 
@@ -101,42 +101,41 @@ pip install tessera-hypernetwork
 
 ### CLI Commands
 
-Tessera provides a comprehensive CLI for all operations:
+The hypernetwork service provides CLI commands for LoRA adapter generation and serving:
 
 ```bash
-# Show version
-tessera --version
-
-# Generate a LoRA adapter
-tessera generate "Senior litigation associate specializing in IP law" \
+# Generate LoRA adapter from metadata (JSON string or file)
+tessera generate --from-metadata '{"task": "classification", "domain": "medical"}' \
   --base-model meta-llama/Llama-3-8B \
   --rank 16 \
-  --output ./adapter.safetensors
+  --save ./adapter.safetensors
 
-# Start the API server
-tessera serve --port 8080
+# Generate LoRA adapter from natural language description
+tessera generate --from-text "Senior litigation associate specializing in IP law" \
+  --base-model meta-llama/Llama-3-8B \
+  --rank 16 \
+  --save ./adapter.safetensors
 
-# Check if Tessera is running
-tessera health --url http://localhost:8080
+# Generate LoRA adapter from document content
+tessera generate --from-doc ./document.txt \
+  --base-model meta-llama/Llama-3-8B \
+  --rank 16 \
+  --save ./adapter.safetensors
 
-# List cached adapters
+# Start the hypernetwork server
+tessera serve --port 8080 --host 0.0.0.0
+
+# Start server with Qdrant vector database integration
+tessera serve --port 8080 --qdrant-url http://localhost:6333
+
+# Check server health status
+tessera health --url http://localhost:8000
+
+# List available base models and their dimensions
 tessera list
-tessera list --base-model meta-llama/Llama-3-8B
-
-# Cache management
-tessera cache clear
-tessera cache stats
-tessera cache prune --max-age-days 7
-
-# LoRAx operations
-tessera lorax import --path ./adapter.safetensors --name my-adapter
-tessera lorax list
-tessera lorax unload --name my-adapter
-
-# PEFT operations
-tessera peft import --path ./adapter.safetensors --name my-adapter
-tessera peft unload --name my-adapter
 ```
+
+**Note**: The full Tessera Rust core (cache management, LoRAx/PEFT operations) is under development. The hypernetwork service currently provides the core generation and serving functionality.
 
 ### Local Development
 
@@ -158,10 +157,10 @@ This starts:
 
 3. **Generate an adapter via CLI**
 ```bash
-tessera generate "Senior litigation associate specializing in IP law" \
+tessera generate --from-text "Senior litigation associate specializing in IP law" \
   --base-model meta-llama/Llama-3-8B \
   --rank 16 \
-  --output ./adapter.safetensors
+  --save ./adapter.safetensors
 ```
 
 4. **Or generate via HTTP API**
@@ -191,36 +190,29 @@ terradev lora add \
 ### Complete Lifecycle Example
 
 ```bash
-# 1. Start Tessera server
-tessera serve --port 8080
+# 1. Start the hypernetwork server
+tessera serve --port 8000
 
 # 2. In another terminal, check health
-tessera health --url http://localhost:8080
+tessera health --url http://localhost:8000
 
-# 3. Generate an adapter
-tessera generate "Expert in quantum computing algorithms" \
+# 3. Generate an adapter from text
+tessera generate --from-text "Expert in quantum computing algorithms" \
   --base-model meta-llama/Llama-3-8B \
   --rank 16 \
-  --output ./quantum-expert.safetensors
+  --save ./quantum-expert.safetensors
 
-# 4. List cached adapters
+# 4. Generate an adapter from metadata
+tessera generate --from-metadata '{"task": "classification", "domain": "science"}' \
+  --base-model meta-llama/Llama-3-8B \
+  --rank 16 \
+  --save ./science-classifier.safetensors
+
+# 5. List available base models
 tessera list
-
-# 5. Check cache statistics
-tessera cache stats
-
-# 6. Import adapter via LoRAx
-tessera lorax import --path ./quantum-expert.safetensors --name quantum-expert
-
-# 7. List imported adapters
-tessera lorax list
-
-# 8. Unload when done
-tessera lorax unload --name quantum-expert
-
-# 9. Clean up old cache entries
-tessera cache prune --max-age-days 30
 ```
+
+**Note**: Cache management, LoRAx/PEFT operations, and advanced composition features are part of the Tessera Rust core, which is under development. The hypernetwork service currently provides the core generation and serving functionality.
 
 ## API Reference
 
