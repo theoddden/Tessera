@@ -1,6 +1,7 @@
 mod adapter;
 mod api;
 mod cache;
+mod cli;
 mod composition;
 mod config;
 mod embedding;
@@ -22,6 +23,19 @@ use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    // Check if CLI mode is requested
+    let args: Vec<String> = std::env::args().collect();
+    
+    // If there are arguments (beyond the program name), run in CLI mode
+    if args.len() > 1 {
+        return cli::run().await;
+    }
+    
+    // Otherwise, run in server mode
+    run_server().await
+}
+
+async fn run_server() -> anyhow::Result<()> {
     // Load config
     let config = Config::from_env()?;
 
