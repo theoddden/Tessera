@@ -144,14 +144,14 @@ def health(url):
 @cli.command()
 def list():
     """List available base models and their dimensions"""
-    
+
     model_dims = {
         "meta-llama/Llama-3-8B": (4096, 4096),
         "meta-llama/Llama-3-70B": (8192, 8192),
         "Qwen/Qwen2-7B": (3584, 3584),
         "deepseek-ai/DeepSeek-V3": (7168, 7168),
     }
-    
+
     click.echo("Available base models:")
     click.echo("")
     for model, (d_in, d_out) in model_dims.items():
@@ -159,6 +159,104 @@ def list():
         click.echo(f"    Dimensions: {d_in} x {d_out}")
     click.echo("")
     click.echo("Default dimensions for unknown models: 4096 x 4096")
+
+
+# LoRAX commands
+@cli.group()
+def lorax():
+    """LoRAX adapter management commands"""
+    pass
+
+
+@lorax.command()
+@click.option('--path', type=str, required=True, help='Path to the adapter safetensors file')
+@click.option('--name', type=str, required=True, help='Name for the adapter in LoRAX')
+@click.option('--base-model', type=str, required=True, help='Base model identifier')
+@click.option('--lorax-url', type=str, default='http://localhost:8080', help='LoRAX server URL (default: http://localhost:8080)')
+def import_adapter(path, name, base_model, lorax_url):
+    """Import an adapter into LoRAX"""
+
+    import requests
+
+    click.echo(f"Importing adapter '{name}' from {path} to LoRAX at {lorax_url}")
+
+    # Read the adapter file
+    try:
+        with open(path, 'rb') as f:
+            adapter_data = f.read()
+    except FileNotFoundError:
+        click.echo(f"Error: Adapter file not found at {path}", err=True)
+        raise click.Abort()
+
+    # Send to LoRAX
+    try:
+        response = requests.post(
+            f"{lorax_url}/v1/adapters",
+            files={"file": (Path(path).name, adapter_data, "application/octet-stream")},
+            data={
+                "adapter_name": name,
+                "base_model": base_model,
+            },
+            timeout=30
+        )
+
+        if response.status_code == 200:
+            click.echo(f"✓ Adapter '{name}' imported successfully")
+        else:
+            click.echo(f"✗ Failed to import adapter: {response.status_code} - {response.text}", err=True)
+            raise click.Abort()
+    except requests.exceptions.RequestException as e:
+        click.echo(f"✗ Failed to connect to LoRAX: {e}", err=True)
+        raise click.Abort()
+
+
+@lorax.command()
+@click.option('--lorax-url', type=str, default='http://localhost:8080', help='LoRAX server URL (default: http://localhost:8080)')
+def list_adapters(lorax_url):
+    """List adapters loaded in LoRAX"""
+
+    import requests
+
+    try:
+        response = requests.get(f"{lorax_url}/v1/adapters", timeout=10)
+
+        if response.status_code == 200:
+            adapters = response.json()
+            if adapters:
+                click.echo("Loaded adapters:")
+                for adapter in adapters:
+                    click.echo(f"  - {adapter.get('name', 'unknown')}: {adapter.get('base_model', 'unknown')}")
+            else:
+                click.echo("No adapters loaded")
+        else:
+            click.echo(f"✗ Failed to list adapters: {response.status_code} - {response.text}", err=True)
+            raise click.Abort()
+    except requests.exceptions.RequestException as e:
+        click.echo(f"✗ Failed to connect to LoRAX: {e}", err=True)
+        raise click.Abort()
+
+
+@lorax.command()
+@click.option('--name', type=str, required=True, help='Name of the adapter to unload')
+@click.option('--lorax-url', type=str, default='http://localhost:8080', help='LoRAX server URL (default: http://localhost:8080)')
+def unload(name, lorax_url):
+    """Unload an adapter from LoRAX"""
+
+    import requests
+
+    click.echo(f"Unloading adapter '{name}' from LoRAX at {lorax_url}")
+
+    try:
+        response = requests.delete(f"{lorax_url}/v1/adapters/{name}", timeout=10)
+
+        if response.status_code == 200:
+            click.echo(f"✓ Adapter '{name}' unloaded successfully")
+        else:
+            click.echo(f"✗ Failed to unload adapter: {response.status_code} - {response.text}", err=True)
+            raise click.Abort()
+    except requests.exceptions.RequestException as e:
+        click.echo(f"✗ Failed to connect to LoRAX: {e}", err=True)
+        raise click.Abort()
 
 
 def main():
