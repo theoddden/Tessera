@@ -1,15 +1,14 @@
 """
-Metadata-to-LoRA pipeline for generating LoRA adapters from structured user metadata.
+Text-to-LoRA pipeline for generating LoRA adapters from natural language descriptions.
 """
 
 import torch
-import json
-from typing import Dict, Any
-from transformers import AutoTokenizer, AutoModel
+from typing import Dict
+from sentence_transformers import SentenceTransformer
 
 
-class MetadataToLoRA:
-    """Generate LoRA adapters from structured user metadata"""
+class TextToLoRA:
+    """Generate LoRA adapters from natural language task descriptions"""
 
     def __init__(
         self,
@@ -18,16 +17,15 @@ class MetadataToLoRA:
         default_rank: int = 16,
     ):
         self.base_model = base_model
-        self.tokenizer = AutoTokenizer.from_pretrained(encoder_model)
-        self.encoder = AutoModel.from_pretrained(encoder_model)
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.encoder = SentenceTransformer(encoder_model)
+        self.encoder = self.encoder.to(self.device)
         self.default_rank = default_rank
         self._init_projection_layers(default_rank)
 
     def _init_projection_layers(self, rank: int):
         """Initialize projection layers with deterministic Xavier weights"""
-        embed_dim = (
-            self.encoder.config.hidden_size if hasattr(self.encoder, "config") else 384
-        )
+        embed_dim = self.encoder.get_sentence_embedding_dimension()
         d_in, d_out = self._get_model_dimensions()
 
         self.proj_lora_A = torch.nn.Linear(embed_dim, rank * d_in)
@@ -38,12 +36,16 @@ class MetadataToLoRA:
         torch.nn.init.xavier_uniform_(self.proj_lora_B.weight)
         torch.nn.init.zeros_(self.proj_lora_B.bias)
 
-    def generate(self, metadata: Dict[str, Any], rank: int) -> Dict[str, torch.Tensor]:
+        # Move projection layers to the same device as encoder
+        self.proj_lora_A = self.proj_lora_A.to(self.device)
+        self.proj_lora_B = self.proj_lora_B.to(self.device)
+
+    def generate(self, description: str, rank: int) -> Dict[str, torch.Tensor]:
         """
-        Generate LoRA weights from structured metadata.
+        Generate LoRA weights from task description.
 
         Args:
-            metadata: Structured user metadata (JSON dict or string)
+            description: Natural language task description
             rank: LoRA rank
 
         Returns:
@@ -53,28 +55,17 @@ class MetadataToLoRA:
             self._init_projection_layers(rank)
             self.default_rank = rank
 
-        metadata_text = (
-            json.dumps(metadata, indent=2)
-            if isinstance(metadata, dict)
-            else str(metadata)
-        )
-
-        inputs = self.tokenizer(
-            metadata_text,
-            return_tensors="pt",
-            truncation=True,
-            max_length=512,
-            padding=True,
-        )
-
         with torch.no_grad():
-            outputs = self.encoder(**inputs)
-            metadata_embedding = outputs.last_hidden_state.mean(dim=1)
+            text_embedding = self.encoder.encode(
+                description,
+                convert_to_tensor=True,
+                show_progress_bar=False
+            )
 
         d_in, d_out = self._get_model_dimensions()
 
-        lora_A_weights = self.proj_lora_A(metadata_embedding)
-        lora_B_weights = self.proj_lora_B(metadata_embedding)
+        lora_A_weights = self.proj_lora_A(text_embedding)
+        lora_B_weights = self.proj_lora_B(text_embedding)
 
         lora_A = lora_A_weights.view(-1, rank, d_in)
         lora_B = lora_B_weights.view(-1, d_out, rank)

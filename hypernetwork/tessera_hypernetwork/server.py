@@ -5,7 +5,7 @@ from safetensors.torch import save as save_safetensors
 from fastapi.responses import Response
 import io
 from typing import Optional, List, Dict
-from doc_to_lora import DocToLoRA
+from tessera_hypernetwork.doc_to_lora import DocToLoRA
 from functools import lru_cache
 
 app = FastAPI(title="Tessera Hypernetwork Service")

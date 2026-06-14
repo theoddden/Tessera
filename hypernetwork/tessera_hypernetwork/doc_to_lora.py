@@ -8,7 +8,7 @@ hierarchical information extraction and attention-based compression.
 import torch
 import torch.nn as nn
 from typing import Dict, List
-from transformers import AutoTokenizer, AutoModel
+from sentence_transformers import SentenceTransformer
 
 
 class SHINEProcessor:
@@ -17,13 +17,12 @@ class SHINEProcessor:
     Implements hierarchical chunking, attention-based selection, and compression.
     """
 
-    def __init__(self, encoder, tokenizer, chunk_size: int = 512, overlap: int = 64):
+    def __init__(self, encoder, chunk_size: int = 512, overlap: int = 64):
         self.encoder = encoder
-        self.tokenizer = tokenizer
         self.chunk_size = chunk_size
         self.overlap = overlap
-        # Derive embed_dim from encoder's hidden size
-        embed_dim = encoder.config.hidden_size if hasattr(encoder, "config") else 768
+        # Derive embed_dim from encoder
+        embed_dim = encoder.get_sentence_embedding_dimension()
         self.attention_selector = nn.MultiheadAttention(
             embed_dim=embed_dim, num_heads=8
         )
@@ -48,19 +47,15 @@ class SHINEProcessor:
         # Chunk document with overlap
         chunks = self._chunk_document(document)
 
-        # Encode each chunk
+        # Encode each chunk using sentence-transformers
         chunk_embeddings = []
         for chunk in chunks:
-            inputs = self.tokenizer(
-                chunk,
-                return_tensors="pt",
-                truncation=True,
-                max_length=self.chunk_size,
-                padding=True,
-            )
             with torch.no_grad():
-                outputs = self.encoder(**inputs)
-                chunk_emb = outputs.last_hidden_state.mean(dim=1)
+                chunk_emb = self.encoder.encode(
+                    chunk,
+                    convert_to_tensor=True,
+                    show_progress_bar=False
+                )
                 chunk_embeddings.append(chunk_emb)
 
         # Stack chunk embeddings
@@ -84,13 +79,13 @@ class SHINEProcessor:
 
     def _chunk_document(self, document: str) -> List[str]:
         """Split document into overlapping chunks"""
-        tokens = self.tokenizer.encode(document, add_special_tokens=False)
+        # Simple character-based chunking for sentence-transformers
+        chars_per_chunk = self.chunk_size * 4  # Approximate chars per chunk
         chunks = []
 
-        for i in range(0, len(tokens), self.chunk_size - self.overlap):
-            chunk_tokens = tokens[i : i + self.chunk_size]
-            chunk_text = self.tokenizer.decode(chunk_tokens)
-            chunks.append(chunk_text)
+        for i in range(0, len(document), chars_per_chunk - self.overlap * 4):
+            chunk = document[i : i + chars_per_chunk]
+            chunks.append(chunk)
 
         return chunks
 
@@ -106,15 +101,16 @@ class DocToLoRA:
         default_rank: int = 16,
     ):
         self.base_model = base_model
-        # Use lightweight embedding model instead of base model
-        self.tokenizer = AutoTokenizer.from_pretrained(encoder_model)
-        self.encoder = AutoModel.from_pretrained(encoder_model)
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        # Use sentence-transformers for embedding
+        self.encoder = SentenceTransformer(encoder_model)
+        self.encoder = self.encoder.to(self.device)
         self.use_shine = use_shine
         self.default_rank = default_rank
 
         if use_shine:
             self.shine_processor = SHINEProcessor(
-                self.encoder, self.tokenizer, chunk_size=512, overlap=64
+                self.encoder, chunk_size=512, overlap=64
             )
 
         # Initialize projection layers for default rank
@@ -122,9 +118,7 @@ class DocToLoRA:
 
     def _init_projection_layers(self, rank: int):
         """Initialize projection layers with deterministic weights for given rank"""
-        embed_dim = (
-            self.encoder.config.hidden_size if hasattr(self.encoder, "config") else 384
-        )
+        embed_dim = self.encoder.get_sentence_embedding_dimension()
         dims = self._get_model_dimensions()
         d_in, d_out = dims
 
@@ -136,6 +130,10 @@ class DocToLoRA:
         torch.nn.init.zeros_(self.proj_lora_A.bias)
         torch.nn.init.xavier_uniform_(self.proj_lora_B.weight)
         torch.nn.init.zeros_(self.proj_lora_B.bias)
+
+        # Move projection layers to the same device as encoder
+        self.proj_lora_A = self.proj_lora_A.to(self.device)
+        self.proj_lora_B = self.proj_lora_B.to(self.device)
 
     def generate(self, document: str, rank: int) -> Dict[str, torch.Tensor]:
         """
@@ -158,16 +156,12 @@ class DocToLoRA:
             doc_embedding = self.shine_processor.process_long_document(document)
         else:
             # Standard encoding for shorter documents
-            inputs = self.tokenizer(
-                document,
-                return_tensors="pt",
-                truncation=True,
-                max_length=4096,
-                padding=True,
-            )
             with torch.no_grad():
-                outputs = self.encoder(**inputs)
-                doc_embedding = outputs.last_hidden_state.mean(dim=1)
+                doc_embedding = self.encoder.encode(
+                    document,
+                    convert_to_tensor=True,
+                    show_progress_bar=False
+                )
 
         # Generate LoRA weights from embedding using class member projection layers
         dims = self._get_model_dimensions()
