@@ -25,12 +25,12 @@ use std::sync::Arc;
 async fn main() -> anyhow::Result<()> {
     // Check if CLI mode is requested
     let args: Vec<String> = std::env::args().collect();
-    
+
     // If there are arguments (beyond the program name), run in CLI mode
     if args.len() > 1 {
         return cli::run().await;
     }
-    
+
     // Otherwise, run in server mode
     run_server().await
 }
