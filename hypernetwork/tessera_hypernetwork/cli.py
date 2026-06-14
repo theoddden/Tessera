@@ -71,7 +71,6 @@ def generate(from_metadata, from_text, from_doc, base_model, rank, save, mode):
     click.echo(f"Generating LoRA adapter (mode={mode}, rank={rank}, base_model={base_model})...")
     
     # Lazy-load heavy dependencies
-    import torch
     from safetensors.torch import save_file
     from tessera_hypernetwork.doc_to_lora import DocToLoRA
     from tessera_hypernetwork.metadata_to_lora import MetadataToLoRA
