@@ -4,18 +4,25 @@ import torch
 from safetensors.torch import save as save_safetensors
 from fastapi.responses import Response
 import io
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Union
 from tessera_hypernetwork.doc_to_lora import DocToLoRA
 from tessera_hypernetwork.metadata_to_lora import MetadataToLoRA
 from tessera_hypernetwork.text_to_lora import TextToLoRA
 from functools import lru_cache
 from pathlib import Path
 import requests
+from transformers import AutoTokenizer
 
 app = FastAPI(title="Tessera Hypernetwork Service")
 
 # In-memory adapter storage (for LoRAX-style management)
 loaded_adapters: Dict[str, Dict] = {}
+
+# Cache tokenizers for base models
+@lru_cache(maxsize=4)
+def get_tokenizer_cached(base_model: str):
+    """Cached tokenizer getter with LRU eviction"""
+    return AutoTokenizer.from_pretrained(base_model)
 
 
 # Cache hypernetwork models with capacity limit (max 4 models)
@@ -41,7 +48,7 @@ class GenerateRequest(BaseModel):
 
 class CompletionsRequest(BaseModel):
     model: str
-    prompt: str
+    prompt: Union[str, List[int]]
     max_tokens: int = 10
     temperature: Optional[float] = None
     top_p: Optional[float] = None
@@ -140,6 +147,14 @@ async def completions(req: CompletionsRequest):
 
     adapter = loaded_adapters[req.model]
 
+    # Convert token IDs to string if needed
+    if isinstance(req.prompt, list):
+        # Get tokenizer for the base model
+        tokenizer = get_tokenizer_cached(adapter["base_model"])
+        prompt_text = tokenizer.decode(req.prompt)
+    else:
+        prompt_text = req.prompt
+
     # Forward request to vLLM
     vllm_url = "http://localhost:8000/v1/completions"
 
@@ -147,7 +162,7 @@ async def completions(req: CompletionsRequest):
         # Prepare request for vLLM
         vllm_request = {
             "model": adapter["base_model"],
-            "prompt": req.prompt,
+            "prompt": prompt_text,
             "max_tokens": req.max_tokens,
         }
 
