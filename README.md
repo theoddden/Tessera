@@ -1,8 +1,10 @@
-# Tessera v0.1.0
+# Tessera v0.2.0
 
 **Free, open-source LoRA adapter generation API. Metadata in → LoRA adapter out → fast.**
 
 Tessera is a high-performance LoRA adapter generation service that takes user metadata, documents, or task descriptions and returns personalized LoRA adapters via hypernetwork synthesis. It does not serve inference — it only generates adapters that you can load into your own inference stack (Terradev, vLLM, LoRAX, etc.).
+
+**GitHub**: https://github.com/theoddden/Tessera
 
 ## Core Value Proposition
 
@@ -76,16 +78,71 @@ Tessera is a high-performance LoRA adapter generation service that takes user me
 ## Quick Start
 
 ### Prerequisites
-- Rust 1.75+
+- Rust 1.88+
 - Python 3.10+
 - Docker (for containerized deployment)
 - NVIDIA GPU (for hypernetwork service)
+
+### Installation
+
+#### Option 1: Build from Source
+
+```bash
+git clone https://github.com/theoddden/Tessera.git
+cd tessera
+cargo build --release
+```
+
+#### Option 2: Install Hypernetwork Service via PyPI
+
+```bash
+pip install tessera-hypernetwork
+```
+
+### CLI Commands
+
+Tessera provides a comprehensive CLI for all operations:
+
+```bash
+# Show version
+tessera --version
+
+# Generate a LoRA adapter
+tessera generate "Senior litigation associate specializing in IP law" \
+  --base-model meta-llama/Llama-3-8B \
+  --rank 16 \
+  --output ./adapter.safetensors
+
+# Start the API server
+tessera serve --port 8080
+
+# Check if Tessera is running
+tessera health --url http://localhost:8080
+
+# List cached adapters
+tessera list
+tessera list --base-model meta-llama/Llama-3-8B
+
+# Cache management
+tessera cache clear
+tessera cache stats
+tessera cache prune --max-age-days 7
+
+# LoRAx operations
+tessera lorax import --path ./adapter.safetensors --name my-adapter
+tessera lorax list
+tessera lorax unload --name my-adapter
+
+# PEFT operations
+tessera peft import --path ./adapter.safetensors --name my-adapter
+tessera peft unload --name my-adapter
+```
 
 ### Local Development
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/your-org/tessera.git
+git clone https://github.com/theoddden/Tessera.git
 cd tessera
 ```
 
@@ -99,7 +156,15 @@ This starts:
 - Hypernetwork service on port 8000
 - Qdrant vector database on port 6333
 
-3. **Generate an adapter**
+3. **Generate an adapter via CLI**
+```bash
+tessera generate "Senior litigation associate specializing in IP law" \
+  --base-model meta-llama/Llama-3-8B \
+  --rank 16 \
+  --output ./adapter.safetensors
+```
+
+4. **Or generate via HTTP API**
 ```bash
 curl -X POST http://localhost:8080/generate \
   -H "Content-Type: application/json" \
@@ -115,12 +180,46 @@ curl -X POST http://localhost:8080/generate \
   --output adapter.safetensors
 ```
 
-4. **Load adapter into Terradev**
+5. **Load adapter into Terradev**
 ```bash
 terradev lora add \
   --endpoint http://localhost:8000 \
   --name user-123-session \
   --path ./adapter.safetensors
+```
+
+### Complete Lifecycle Example
+
+```bash
+# 1. Start Tessera server
+tessera serve --port 8080
+
+# 2. In another terminal, check health
+tessera health --url http://localhost:8080
+
+# 3. Generate an adapter
+tessera generate "Expert in quantum computing algorithms" \
+  --base-model meta-llama/Llama-3-8B \
+  --rank 16 \
+  --output ./quantum-expert.safetensors
+
+# 4. List cached adapters
+tessera list
+
+# 5. Check cache statistics
+tessera cache stats
+
+# 6. Import adapter via LoRAx
+tessera lorax import --path ./quantum-expert.safetensors --name quantum-expert
+
+# 7. List imported adapters
+tessera lorax list
+
+# 8. Unload when done
+tessera lorax unload --name quantum-expert
+
+# 9. Clean up old cache entries
+tessera cache prune --max-age-days 30
 ```
 
 ## API Reference

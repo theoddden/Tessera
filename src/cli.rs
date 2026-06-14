@@ -117,9 +117,12 @@ pub async fn run() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Some(Commands::Generate { prompt, base_model, rank, output }) => {
-            generate_adapter(prompt, base_model, rank, output).await
-        }
+        Some(Commands::Generate {
+            prompt,
+            base_model,
+            rank,
+            output,
+        }) => generate_adapter(prompt, base_model, rank, output).await,
         Some(Commands::Serve { port }) => serve(port).await,
         Some(Commands::Health { url }) => health_check(url).await,
         Some(Commands::List { base_model }) => list_adapters(base_model).await,
@@ -145,60 +148,57 @@ async fn generate_adapter(
     println!("Generating adapter for prompt: {}", prompt);
     println!("Base model: {}", base_model);
     println!("Rank: {}", rank);
-    
+
     // TODO: Implement actual generation logic
     // This would call the hypernetwork service and save the adapter
-    
+
     if let Some(output_path) = output {
         println!("Output path: {}", output_path.display());
     } else {
         println!("Output: (cached in adapter store)");
     }
-    
+
     Ok(())
 }
 
 async fn serve(port: u16) -> anyhow::Result<()> {
     println!("Starting Tessera server on port {}", port);
-    
+
     // Reuse the existing server logic from main.rs
     // For now, we'll just print a message
     println!("Server mode - TODO: integrate with existing server logic");
-    
+
     Ok(())
 }
 
 async fn health_check(url: String) -> anyhow::Result<()> {
     println!("Checking health at: {}", url);
-    
+
     let client = reqwest::Client::new();
-    let response = client
-        .get(&format!("{}/health", url))
-        .send()
-        .await?;
-    
+    let response = client.get(&format!("{}/health", url)).send().await?;
+
     if response.status().is_success() {
         let health: serde_json::Value = response.json().await?;
         println!("Health check passed: {:?}", health);
     } else {
         println!("Health check failed: {}", response.status());
     }
-    
+
     Ok(())
 }
 
 async fn list_adapters(base_model: Option<String>) -> anyhow::Result<()> {
     println!("Listing cached adapters");
-    
+
     if let Some(model) = base_model {
         println!("Filtering by base model: {}", model);
     }
-    
+
     // TODO: Implement actual listing from cache store
     println!("Cached adapters:");
     println!("  - adapter-1 (meta-llama/Llama-3-8B, rank=16)");
     println!("  - adapter-2 (meta-llama/Llama-3-8B, rank=16)");
-    
+
     Ok(())
 }
 
@@ -223,7 +223,7 @@ async fn cache_action(action: CacheAction) -> anyhow::Result<()> {
 }
 
 fn show_version() {
-    println!("Tessera v0.1.0");
+    println!("Tessera v0.2.0");
     println!("Rust {}", env!("CARGO_PKG_RUST_VERSION"));
 }
 
