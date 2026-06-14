@@ -1442,6 +1442,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e5274423e17b7c9fc20b6e7e208532f9b19825d82dfd615708b70edd83df41f1"
 dependencies = [
  "ahash 0.8.12",
+ "allocator-api2",
 ]
 
 [[package]]
@@ -3684,6 +3685,7 @@ dependencies = [
  "clap",
  "config",
  "dotenvy",
+ "hashbrown 0.14.5",
  "hf-hub",
  "hyper 1.10.1",
  "indexmap 2.14.0",

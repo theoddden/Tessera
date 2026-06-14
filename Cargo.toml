@@ -60,6 +60,7 @@ bytes = "1"
 ndarray = "0.15"
 base64 = "0.22"
 bytemuck = "1"
+hashbrown = "0.14"
 
 [profile.release]
 opt-level = 3
