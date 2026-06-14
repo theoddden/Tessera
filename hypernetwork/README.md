@@ -54,9 +54,9 @@ tessera health --url http://localhost:8000
 tessera list
 
 # LoRAX adapter management
-tessera lorax import --path ./adapter.safetensors --name my-adapter --base-model meta-llama/Llama-3-8B
-tessera lorax list
-tessera lorax unload --name my-adapter
+tessera lorax import --path ./adapter.safetensors --name my-adapter --base-model meta-llama/Llama-3-8B --server-url http://localhost:8000
+tessera lorax list --server-url http://localhost:8000
+tessera lorax unload --name my-adapter --server-url http://localhost:8000
 ```
 
 ### Server Mode
@@ -128,9 +128,9 @@ tessera health --url http://localhost:8000
 tessera list
 
 # LoRAX adapter management
-tessera lorax import --path ./adapter.safetensors --name my-adapter --base-model meta-llama/Llama-3-8B
-tessera lorax list
-tessera lorax unload --name my-adapter
+tessera lorax import --path ./adapter.safetensors --name my-adapter --base-model meta-llama/Llama-3-8B --server-url http://localhost:8000
+tessera lorax list --server-url http://localhost:8000
+tessera lorax unload --name my-adapter --server-url http://localhost:8000
 ```
 
 For the complete Tessera system, see: https://github.com/theoddden/Tessera

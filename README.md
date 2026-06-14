@@ -135,9 +135,9 @@ tessera health --url http://localhost:8000
 tessera list
 
 # LoRAX adapter management
-tessera lorax import --path ./adapter.safetensors --name my-adapter --base-model meta-llama/Llama-3-8B
-tessera lorax list
-tessera lorax unload --name my-adapter
+tessera lorax import --path ./adapter.safetensors --name my-adapter --base-model meta-llama/Llama-3-8B --server-url http://localhost:8000
+tessera lorax list --server-url http://localhost:8000
+tessera lorax unload --name my-adapter --server-url http://localhost:8000
 ```
 
 **Note**: The full Tessera Rust core (cache management, advanced composition features) is under development. The hypernetwork service currently provides the core generation, serving, and LoRAX integration functionality.

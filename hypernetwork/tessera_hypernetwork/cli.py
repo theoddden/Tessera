@@ -170,15 +170,15 @@ def lorax():
 
 @lorax.command()
 @click.option('--path', type=str, required=True, help='Path to the adapter safetensors file')
-@click.option('--name', type=str, required=True, help='Name for the adapter in LoRAX')
+@click.option('--name', type=str, required=True, help='Name for the adapter')
 @click.option('--base-model', type=str, required=True, help='Base model identifier')
-@click.option('--lorax-url', type=str, default='http://localhost:8080', help='LoRAX server URL (default: http://localhost:8080)')
-def import_adapter(path, name, base_model, lorax_url):
-    """Import an adapter into LoRAX"""
+@click.option('--server-url', type=str, default='http://localhost:8000', help='Tessera hypernetwork server URL (default: http://localhost:8000)')
+def import_adapter(path, name, base_model, server_url):
+    """Import an adapter into the Tessera hypernetwork service"""
 
     import requests
 
-    click.echo(f"Importing adapter '{name}' from {path} to LoRAX at {lorax_url}")
+    click.echo(f"Importing adapter '{name}' from {path} to Tessera at {server_url}")
 
     # Read the adapter file
     try:
@@ -188,10 +188,10 @@ def import_adapter(path, name, base_model, lorax_url):
         click.echo(f"Error: Adapter file not found at {path}", err=True)
         raise click.Abort()
 
-    # Send to LoRAX
+    # Send to Tessera server
     try:
         response = requests.post(
-            f"{lorax_url}/v1/adapters",
+            f"{server_url}/v1/adapters",
             files={"file": (Path(path).name, adapter_data, "application/octet-stream")},
             data={
                 "adapter_name": name,
@@ -206,48 +206,48 @@ def import_adapter(path, name, base_model, lorax_url):
             click.echo(f"✗ Failed to import adapter: {response.status_code} - {response.text}", err=True)
             raise click.Abort()
     except requests.exceptions.RequestException as e:
-        click.echo(f"✗ Failed to connect to LoRAX: {e}", err=True)
+        click.echo(f"✗ Failed to connect to Tessera server: {e}", err=True)
         raise click.Abort()
 
 
 @lorax.command()
-@click.option('--lorax-url', type=str, default='http://localhost:8080', help='LoRAX server URL (default: http://localhost:8080)')
-def list_adapters(lorax_url):
-    """List adapters loaded in LoRAX"""
+@click.option('--server-url', type=str, default='http://localhost:8000', help='Tessera hypernetwork server URL (default: http://localhost:8000)')
+def list_adapters(server_url):
+    """List adapters loaded in the Tessera hypernetwork service"""
 
     import requests
 
     try:
-        response = requests.get(f"{lorax_url}/v1/adapters", timeout=10)
+        response = requests.get(f"{server_url}/v1/adapters", timeout=10)
 
         if response.status_code == 200:
             adapters = response.json()
             if adapters:
                 click.echo("Loaded adapters:")
                 for adapter in adapters:
-                    click.echo(f"  - {adapter.get('name', 'unknown')}: {adapter.get('base_model', 'unknown')}")
+                    click.echo(f"  - {adapter.get('name', 'unknown')}: {adapter.get('base_model', 'unknown')} ({adapter.get('size', 0)} bytes)")
             else:
                 click.echo("No adapters loaded")
         else:
             click.echo(f"✗ Failed to list adapters: {response.status_code} - {response.text}", err=True)
             raise click.Abort()
     except requests.exceptions.RequestException as e:
-        click.echo(f"✗ Failed to connect to LoRAX: {e}", err=True)
+        click.echo(f"✗ Failed to connect to Tessera server: {e}", err=True)
         raise click.Abort()
 
 
 @lorax.command()
 @click.option('--name', type=str, required=True, help='Name of the adapter to unload')
-@click.option('--lorax-url', type=str, default='http://localhost:8080', help='LoRAX server URL (default: http://localhost:8080)')
-def unload(name, lorax_url):
-    """Unload an adapter from LoRAX"""
+@click.option('--server-url', type=str, default='http://localhost:8000', help='Tessera hypernetwork server URL (default: http://localhost:8000)')
+def unload(name, server_url):
+    """Unload an adapter from the Tessera hypernetwork service"""
 
     import requests
 
-    click.echo(f"Unloading adapter '{name}' from LoRAX at {lorax_url}")
+    click.echo(f"Unloading adapter '{name}' from Tessera at {server_url}")
 
     try:
-        response = requests.delete(f"{lorax_url}/v1/adapters/{name}", timeout=10)
+        response = requests.delete(f"{server_url}/v1/adapters/{name}", timeout=10)
 
         if response.status_code == 200:
             click.echo(f"✓ Adapter '{name}' unloaded successfully")
@@ -255,7 +255,7 @@ def unload(name, lorax_url):
             click.echo(f"✗ Failed to unload adapter: {response.status_code} - {response.text}", err=True)
             raise click.Abort()
     except requests.exceptions.RequestException as e:
-        click.echo(f"✗ Failed to connect to LoRAX: {e}", err=True)
+        click.echo(f"✗ Failed to connect to Tessera server: {e}", err=True)
         raise click.Abort()
 
 

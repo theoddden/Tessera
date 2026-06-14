@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 import torch
 from safetensors.torch import save as save_safetensors
@@ -6,9 +6,15 @@ from fastapi.responses import Response
 import io
 from typing import Optional, List, Dict
 from tessera_hypernetwork.doc_to_lora import DocToLoRA
+from tessera_hypernetwork.metadata_to_lora import MetadataToLoRA
+from tessera_hypernetwork.text_to_lora import TextToLoRA
 from functools import lru_cache
+from pathlib import Path
 
 app = FastAPI(title="Tessera Hypernetwork Service")
+
+# In-memory adapter storage (for LoRAX-style management)
+loaded_adapters: Dict[str, Dict] = {}
 
 
 # Cache hypernetwork models with capacity limit (max 4 models)
@@ -60,6 +66,54 @@ async def generate(req: GenerateRequest):
 @app.get("/health")
 async def health():
     return {"status": "healthy", "model": "hypernetwork"}
+
+
+# LoRAX-style adapter management endpoints
+@app.post("/v1/adapters")
+async def import_adapter(
+    file: UploadFile = File(...),
+    adapter_name: str = Form(...),
+    base_model: str = Form(...)
+):
+    """Import an adapter into the hypernetwork service"""
+    try:
+        # Read adapter data
+        adapter_data = await file.read()
+
+        # Store in memory
+        loaded_adapters[adapter_name] = {
+            "name": adapter_name,
+            "base_model": base_model,
+            "data": adapter_data,
+            "size": len(adapter_data)
+        }
+
+        return {"status": "success", "message": f"Adapter '{adapter_name}' imported successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to import adapter: {str(e)}")
+
+
+@app.get("/v1/adapters")
+async def list_adapters():
+    """List all loaded adapters"""
+    adapters = []
+    for name, adapter in loaded_adapters.items():
+        adapters.append({
+            "name": adapter["name"],
+            "base_model": adapter["base_model"],
+            "size": adapter["size"]
+        })
+    return adapters
+
+
+@app.delete("/v1/adapters/{adapter_name}")
+async def unload_adapter(adapter_name: str):
+    """Unload an adapter from the hypernetwork service"""
+    if adapter_name not in loaded_adapters:
+        raise HTTPException(status_code=404, detail=f"Adapter '{adapter_name}' not found")
+
+    del loaded_adapters[adapter_name]
+    return {"status": "success", "message": f"Adapter '{adapter_name}' unloaded successfully"}
 
 
 def infer_mode(content: str) -> str:
