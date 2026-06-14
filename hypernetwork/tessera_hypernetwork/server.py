@@ -10,6 +10,7 @@ from tessera_hypernetwork.metadata_to_lora import MetadataToLoRA
 from tessera_hypernetwork.text_to_lora import TextToLoRA
 from functools import lru_cache
 from pathlib import Path
+import requests
 
 app = FastAPI(title="Tessera Hypernetwork Service")
 
@@ -36,6 +37,14 @@ class GenerateRequest(BaseModel):
     target_rank: int = 16
     response_format: Dict[str, str]
     mode: Optional[str] = None
+
+
+class CompletionsRequest(BaseModel):
+    model: str
+    prompt: str
+    max_tokens: int = 10
+    temperature: Optional[float] = None
+    top_p: Optional[float] = None
 
 
 @app.post("/v1/generate")
@@ -114,6 +123,54 @@ async def unload_adapter(adapter_name: str):
 
     del loaded_adapters[adapter_name]
     return {"status": "success", "message": f"Adapter '{adapter_name}' unloaded successfully"}
+
+
+@app.post("/v1/completions")
+async def completions(req: CompletionsRequest):
+    """
+    OpenAI-compatible completions endpoint for lm_eval integration.
+    Looks up adapter by name and forwards to vLLM.
+    """
+    # Check if adapter is loaded
+    if req.model not in loaded_adapters:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Adapter '{req.model}' not found. Load it first using tessera lorax import"
+        )
+
+    adapter = loaded_adapters[req.model]
+
+    # Forward request to vLLM
+    vllm_url = "http://localhost:8000/v1/completions"
+
+    try:
+        # Prepare request for vLLM
+        vllm_request = {
+            "model": adapter["base_model"],
+            "prompt": req.prompt,
+            "max_tokens": req.max_tokens,
+        }
+
+        if req.temperature is not None:
+            vllm_request["temperature"] = req.temperature
+        if req.top_p is not None:
+            vllm_request["top_p"] = req.top_p
+
+        # Send to vLLM
+        response = requests.post(vllm_url, json=vllm_request, timeout=30)
+
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"vLLM request failed: {response.text}"
+            )
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Failed to connect to vLLM at {vllm_url}: {str(e)}"
+        )
 
 
 def infer_mode(content: str) -> str:
