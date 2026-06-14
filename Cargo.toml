@@ -34,7 +34,7 @@ tokio-rusqlite = "0.5"
 
 # Embedding
 hf-hub = "0.3"
-tokenizers = "0.15"
+tokenizers = "0.13"
 
 # Observability
 tracing = "0.1"
@@ -45,6 +45,9 @@ metrics-exporter-prometheus = "0.13"
 # Config
 config = "0.13"
 dotenvy = "0.15"
+
+# CLI
+clap = { version = "4.4", features = ["derive"] }
 
 # Error handling
 anyhow = "1"
