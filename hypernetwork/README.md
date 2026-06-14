@@ -55,6 +55,45 @@ pytest
 
 This hypernetwork service is designed to work with the Tessera Rust core. The Rust core handles semantic caching, vector similarity search, and adapter composition, while this Python service handles the actual LoRA adapter generation via hypernetwork synthesis.
 
+### Full Tessera CLI Lifecycle
+
+The complete Tessera system provides a comprehensive CLI for all operations:
+
+```bash
+# Show version
+tessera --version
+
+# Generate a LoRA adapter
+tessera generate "Senior litigation associate specializing in IP law" \
+  --base-model meta-llama/Llama-3-8B \
+  --rank 16 \
+  --output ./adapter.safetensors
+
+# Start the API server
+tessera serve --port 8080
+
+# Check if Tessera is running
+tessera health --url http://localhost:8080
+
+# List cached adapters
+tessera list
+tessera list --base-model meta-llama/Llama-3-8B
+
+# Cache management
+tessera cache clear
+tessera cache stats
+tessera cache prune --max-age-days 7
+
+# LoRAx operations
+tessera lorax import --path ./adapter.safetensors --name my-adapter
+tessera lorax list
+tessera lorax unload --name my-adapter
+
+# PEFT operations
+tessera peft import --path ./adapter.safetensors --name my-adapter
+tessera peft unload --name my-adapter
+```
+
 For the complete Tessera system, see: https://github.com/theoddden/Tessera
 
 ## License
