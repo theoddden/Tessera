@@ -7,6 +7,8 @@ Generate per-session LoRA adapters for inference tasks. This is the Python hyper
 - **Doc-to-LoRA with SHINE**: Generate adapters from document content using SHINE (ICML 2026) for long-context internalization
 - **Text-to-LoRA**: Generate adapters from natural language descriptions
 - **Metadata-to-LoRA**: Generate adapters from structured user metadata
+- **LoRAX-style Adapter Management**: Import, list, and unload adapters via CLI and API
+- **OpenAI-compatible Completions**: `/v1/completions` endpoint for lm_eval integration
 - **OpenAI-compatible API**: Easy integration with existing tooling
 - **FastAPI**: Modern async Python web framework
 
@@ -17,6 +19,42 @@ pip install tessera-hypernetwork
 ```
 
 ## Usage
+
+### LoRAX Adapter Management
+
+The hypernetwork service provides LoRAX-style adapter management for loading and serving LoRA adapters:
+
+```bash
+# Import an adapter into the service
+tessera lorax import --path ./adapter.safetensors --name my-adapter --base-model meta-llama/Llama-3-8B --server-url http://localhost:8000
+
+# List loaded adapters
+tessera lorax list --server-url http://localhost:8000
+
+# Unload an adapter
+tessera lorax unload --name my-adapter --server-url http://localhost:8000
+```
+
+**API Endpoints**:
+- `POST /v1/adapters` - Import adapter safetensors
+- `GET /v1/adapters` - List loaded adapters
+- `DELETE /v1/adapters/{name}` - Unload adapter
+
+### OpenAI-Compatible Completions
+
+The `/v1/completions` endpoint provides OpenAI-compatible completions for lm_eval integration:
+
+```bash
+curl -X POST http://localhost:8000/v1/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "my-adapter",
+    "prompt": "Hello, world!",
+    "max_tokens": 10
+  }'
+```
+
+The endpoint looks up the adapter by name from the loaded adapters registry and forwards the request to vLLM.
 
 ### CLI Commands
 
@@ -52,11 +90,6 @@ tessera health --url http://localhost:8000
 
 # List available base models
 tessera list
-
-# LoRAX adapter management
-tessera lorax import --path ./adapter.safetensors --name my-adapter --base-model meta-llama/Llama-3-8B --server-url http://localhost:8000
-tessera lorax list --server-url http://localhost:8000
-tessera lorax unload --name my-adapter --server-url http://localhost:8000
 ```
 
 ### Server Mode
