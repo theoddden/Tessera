@@ -149,16 +149,13 @@ async def completions(req: CompletionsRequest):
 
     # Convert token IDs to string if needed
     if isinstance(req.prompt, list):
-        # Get tokenizer for the base model
-        tokenizer = get_tokenizer_cached(adapter["base_model"])
-
         # Check if it's a batch (List[List[int]]) or single sequence (List[int])
         if req.prompt and isinstance(req.prompt[0], list):
-            # Batch of sequences - decode the first one for now
-            # TODO: Handle batched requests properly
-            prompt_text = tokenizer.decode(req.prompt[0])
+            # Batch of sequences - pass directly to vLLM (handles natively)
+            prompt_text = req.prompt
         else:
-            # Single sequence
+            # Single sequence - decode to string
+            tokenizer = get_tokenizer_cached(adapter["base_model"])
             prompt_text = tokenizer.decode(req.prompt)
     else:
         prompt_text = req.prompt
