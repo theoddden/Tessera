@@ -69,21 +69,21 @@ def generate(from_metadata, from_text, from_doc, base_model, rank, save, mode):
     
     # Generate LoRA weights
     click.echo(f"Generating LoRA adapter (mode={mode}, rank={rank}, base_model={base_model})...")
-    
-    # Lazy-load heavy dependencies
+
+    # Lazy-load heavy dependencies and only import what's needed
     from safetensors.torch import save_file
-    from tessera_hypernetwork.doc_to_lora import DocToLoRA
-    from tessera_hypernetwork.metadata_to_lora import MetadataToLoRA
-    from tessera_hypernetwork.text_to_lora import TextToLoRA
-    
+
     try:
         if mode == 'metadata':
+            from tessera_hypernetwork.metadata_to_lora import MetadataToLoRA
             generator = MetadataToLoRA(base_model, default_rank=rank)
             lora_weights = generator.generate(content, rank)
         elif mode == 'doc':
+            from tessera_hypernetwork.doc_to_lora import DocToLoRA
             generator = DocToLoRA(base_model, use_shine=True, default_rank=rank)
             lora_weights = generator.generate(content, rank)
         else:  # text
+            from tessera_hypernetwork.text_to_lora import TextToLoRA
             generator = TextToLoRA(base_model, default_rank=rank)
             lora_weights = generator.generate(content, rank)
         
