@@ -201,7 +201,7 @@ def infer_mode(content: str) -> str:
 def serialize_lora(weights: dict) -> bytes:
     """Convert LoRA weight dict to safetensors bytes"""
     buffer = io.BytesIO()
-    save_safetensors(weights, buffer)
+    save_safetensors(weights, buffer, metadata={})
     return buffer.getvalue()
 
 
