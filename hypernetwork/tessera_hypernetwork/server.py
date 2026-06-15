@@ -48,7 +48,7 @@ class GenerateRequest(BaseModel):
 
 class CompletionsRequest(BaseModel):
     model: str
-    prompt: Union[str, List[int]]
+    prompt: Union[str, List[int], List[List[int]]]
     max_tokens: int = 10
     temperature: Optional[float] = None
     top_p: Optional[float] = None
@@ -151,7 +151,15 @@ async def completions(req: CompletionsRequest):
     if isinstance(req.prompt, list):
         # Get tokenizer for the base model
         tokenizer = get_tokenizer_cached(adapter["base_model"])
-        prompt_text = tokenizer.decode(req.prompt)
+
+        # Check if it's a batch (List[List[int]]) or single sequence (List[int])
+        if req.prompt and isinstance(req.prompt[0], list):
+            # Batch of sequences - decode the first one for now
+            # TODO: Handle batched requests properly
+            prompt_text = tokenizer.decode(req.prompt[0])
+        else:
+            # Single sequence
+            prompt_text = tokenizer.decode(req.prompt)
     else:
         prompt_text = req.prompt
 
