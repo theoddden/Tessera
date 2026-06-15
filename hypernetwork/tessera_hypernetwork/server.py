@@ -13,6 +13,7 @@ from pathlib import Path
 import requests
 from transformers import AutoTokenizer
 import os
+import time
 
 app = FastAPI(title="Tessera Hypernetwork Service")
 
@@ -83,6 +84,33 @@ if CHECKPOINT_PATH and os.path.exists(CHECKPOINT_PATH):
         print(f"Could not load checkpoint from {CHECKPOINT_PATH}, using placeholder")
 
 
+# Latency monitoring
+generation_latencies = []
+MAX_LATENCY_WINDOW = 100
+
+
+def record_generation_latency(latency_ms: float):
+    """Record generation latency for monitoring."""
+    generation_latencies.append(latency_ms)
+    if len(generation_latencies) > MAX_LATENCY_WINDOW:
+        generation_latencies.pop(0)
+
+
+def get_latency_stats() -> Dict[str, float]:
+    """Get latency statistics."""
+    if not generation_latencies:
+        return {}
+
+    import numpy as np
+    return {
+        "p50_ms": float(np.percentile(generation_latencies, 50)),
+        "p95_ms": float(np.percentile(generation_latencies, 95)),
+        "p99_ms": float(np.percentile(generation_latencies, 99)),
+        "mean_ms": float(np.mean(generation_latencies)),
+        "count": len(generation_latencies),
+    }
+
+
 class GenerateRequest(BaseModel):
     model: str = "hypernetwork"
     messages: List[Dict[str, str]]
@@ -109,6 +137,8 @@ async def generate(req: GenerateRequest):
     Run hypernetwork forward pass.
     Return safetensors bytes directly.
     """
+    start_time = time.perf_counter()
+
     content = req.messages[0]["content"]
     # Use mode from request if provided, otherwise infer from content
     mode = req.mode if req.mode else infer_mode(content)
@@ -155,6 +185,11 @@ async def generate(req: GenerateRequest):
     # Serialize to safetensors bytes
     adapter_bytes = serialize_lora(lora_weights_dict)
 
+    # Record latency
+    end_time = time.perf_counter()
+    latency_ms = (end_time - start_time) * 1000
+    record_generation_latency(latency_ms)
+
     # Return raw bytes — no JSON wrapping
     return Response(content=adapter_bytes, media_type="application/octet-stream")
 
@@ -162,6 +197,12 @@ async def generate(req: GenerateRequest):
 @app.get("/health")
 async def health():
     return {"status": "healthy", "model": "hypernetwork"}
+
+
+@app.get("/metrics")
+async def metrics():
+    """Return latency metrics for monitoring."""
+    return get_latency_stats()
 
 
 # LoRAX-style adapter management endpoints
