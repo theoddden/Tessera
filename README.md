@@ -1,6 +1,6 @@
-Tessera Hypernetwork
+# Tessera Hypernetwork
 
-Generate per-session LoRA adapters for inference tasks using hypernetwork synthesis.
+# Generate per-session LoRA adapters for inference tasks using hypernetwork synthesis.
 
 Features
 Metadata-to-LoRA: Generate adapters from structured user metadata (JSON)
@@ -35,26 +35,30 @@ CLI Commands
 Generate
 Generate LoRA adapters from metadata, text, or documents:
 
-# From metadata (JSON string or file)
+From metadata (JSON string or file)
+
 tessera generate \
   --from-metadata '{"task": "classification", "domain": "medical"}' \
   --base-model mistralai/Mistral-7B-Instruct-v0.2 \
   --rank 16 \
   --save ./adapter.safetensors
 
-# From text description
+From text description
+
 tessera generate \
   --from-text "Medical diagnosis assistant" \
   --base-model mistralai/Mistral-7B-Instruct-v0.2 \
   --rank 16 \
   --save ./adapter.safetensors
 
-# From document
+From document
+
 tessera generate \
   --from-doc ./document.txt \
   --base-model mistralai/Mistral-7B-Instruct-v0.2 \
   --rank 16 \
   --save ./adapter.safetensors
+
 Options:
 
 --from-metadata: JSON metadata string or file path
@@ -65,6 +69,7 @@ Options:
 --save: Output path for safetensors file (required)
 --mode: Generation mode: doc, metadata, or text (auto-inferred if not specified)
 Serve
+
 Start the hypernetwork server:
 
 tessera serve --port 8000 --host 0.0.0.0
@@ -75,6 +80,7 @@ Options:
 --qdrant-url: Qdrant vector database URL (optional)
 --workers: Number of worker processes (default: 1)
 Health
+
 Check server health status:
 
 tessera health --url http://localhost:8000
@@ -85,20 +91,22 @@ List
 List available base models and their dimensions:
 
 tessera list
-LoRAX Adapter Management
+
+# LoRAX Adapter Management
+
 Import, list, and unload adapters:
 
-# Import an adapter
+Import an adapter
 tessera lorax import-adapter \
   --path ./adapter.safetensors \
   --name my-adapter \
   --base-model mistralai/Mistral-7B-Instruct-v0.2 \
   --server-url http://localhost:8000
 
-# List loaded adapters
+List loaded adapters
 tessera lorax list-adapters --server-url http://localhost:8000
 
-# Unload an adapter
+Unload an adapter
 tessera lorax unload --name my-adapter --server-url http://localhost:8000
 API Endpoints
 The hypernetwork service provides a FastAPI server with the following endpoints:
