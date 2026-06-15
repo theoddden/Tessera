@@ -4,7 +4,6 @@ QUICK START: Import metadata and generate adapter FAST.
 This is the simplest way to use Tessera Hypernetwork.
 """
 
-import torch
 from tessera_hypernetwork.metadata_to_lora import MetadataToLoRA
 
 
@@ -40,7 +39,7 @@ if __name__ == "__main__":
     print("Generating adapter...")
     lora = generate_adapter_simple(metadata)
 
-    print(f"✓ Adapter generated!")
+    print("✓ Adapter generated!")
     print(f"  LoRA A shape: {lora['lora_A'].shape}")
     print(f"  LoRA B shape: {lora['lora_B'].shape}")
     print(f"  Ready to use with {metadata['domain']} domain")

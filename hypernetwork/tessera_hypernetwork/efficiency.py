@@ -15,7 +15,6 @@ Key features:
 - Efficiency metrics dashboard
 """
 
-import torch
 import time
 from typing import Dict, Optional, List, Tuple
 from collections import deque

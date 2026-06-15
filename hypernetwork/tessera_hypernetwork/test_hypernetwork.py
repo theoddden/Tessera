@@ -1,6 +1,5 @@
 """Tests for Tessera Hypernetwork Service"""
 
-import pytest
 import time
 import requests
 import json
@@ -84,7 +83,7 @@ def test_adapter_generation_latency():
     max_latency = max(latencies)
     min_latency = min(latencies)
 
-    print(f"\nAdapter Generation Latency (metadata mode):")
+    print("\nAdapter Generation Latency (metadata mode):")
     print(f"  Average: {avg_latency:.3f}s")
     print(f"  Min: {min_latency:.3f}s")
     print(f"  Max: {max_latency:.3f}s")
