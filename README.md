@@ -8,7 +8,7 @@ Metadata-to-LoRA: Generate adapters from structured user metadata (JSON) \
 Text-to-LoRA: Generate adapters from natural language descriptions \
 Doc-to-LoRA with SHINE: Generate adapters from document content using SHINE (ICML 2026) for long-context internalization \
 FastAPI: Modern async Python web framework \
-OpenAI-compatible API: Easy integration with existing tooling \
+OpenAI-compatible API: Easy integration with existing tooling
 
 **Installation**
 
