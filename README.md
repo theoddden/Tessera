@@ -4,14 +4,15 @@
 
 **Features**
 
-Metadata-to-LoRA: Generate adapters from structured user metadata (JSON)
-Text-to-LoRA: Generate adapters from natural language descriptions
-Doc-to-LoRA with SHINE: Generate adapters from document content using SHINE (ICML 2026) for long-context internalization
-FastAPI: Modern async Python web framework
-OpenAI-compatible API: Easy integration with existing tooling
-Installation
+Metadata-to-LoRA: Generate adapters from structured user metadata (JSON) \
+Text-to-LoRA: Generate adapters from natural language descriptions \
+Doc-to-LoRA with SHINE: Generate adapters from document content using SHINE (ICML 2026) for long-context internalization \
+FastAPI: Modern async Python web framework \
+OpenAI-compatible API: Easy integration with existing tooling \
+
+**Installation**
+
 pip install tessera-hypernetwork
-Quick Start
 
 # Commands
 
@@ -52,7 +53,9 @@ tessera generate \
 --mode: Generation mode: doc, metadata, or text (auto-inferred if not specified) \
 Serve
 
-**Start the hypernetwork server:**
+**Serve:**
+
+Start the hypernetwork server
 
 tessera serve --port 8000 --host 0.0.0.0
 Options:
@@ -63,7 +66,9 @@ Options:
 --workers: Number of worker processes (default: 1) \
 Health
 
-**Check server health status:**
+**Health:**
+
+Check server health status
 
 tessera health --url http://localhost:8000
 Options:
@@ -76,7 +81,9 @@ List available base models and their dimensions:
 
 tessera list
 
-# LoRAX Adapter Management
+**Lorax:** 
+
+LoRAX Adapter Management
 
 Import, list, and unload adapters:
 
@@ -96,7 +103,7 @@ tessera lorax list-adapters --server-url http://localhost:8000
 
 tessera lorax unload --name my-adapter --server-url http://localhost:8000
 
-**API Endpoints**
+## API Endpoints
 
 The hypernetwork service provides a FastAPI server with the following endpoints:
 
