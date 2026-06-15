@@ -52,6 +52,8 @@ class CompletionsRequest(BaseModel):
     max_tokens: int = 10
     temperature: Optional[float] = None
     top_p: Optional[float] = None
+    logprobs: Optional[int] = None
+    echo: Optional[bool] = None
 
 
 @app.post("/v1/generate")
@@ -175,6 +177,16 @@ async def completions(req: CompletionsRequest):
             vllm_request["temperature"] = req.temperature
         if req.top_p is not None:
             vllm_request["top_p"] = req.top_p
+        if req.logprobs is not None:
+            vllm_request["logprobs"] = req.logprobs
+        else:
+            # Default to logprobs=1 for lm_eval compatibility
+            vllm_request["logprobs"] = 1
+        if req.echo is not None:
+            vllm_request["echo"] = req.echo
+        else:
+            # Default to echo=true for lm_eval loglikelihood
+            vllm_request["echo"] = True
 
         # Send to vLLM
         response = requests.post(vllm_url, json=vllm_request, timeout=30)
