@@ -13,7 +13,7 @@ class MetadataToLoRA:
 
     def __init__(
         self,
-        base_model: str,
+        base_model: str = "mistralai/Mistral-7B-Instruct-v0.2",
         encoder_model: str = "sentence-transformers/all-MiniLM-L6-v2",
         default_rank: int = 16,
     ):
