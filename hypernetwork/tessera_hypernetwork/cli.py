@@ -18,7 +18,7 @@ def cli():
 @click.option('--from-metadata', type=str, help='JSON metadata string or file path')
 @click.option('--from-text', type=str, help='Natural language description')
 @click.option('--from-doc', type=str, help='Document content or file path')
-@click.option('--base-model', type=str, required=True, help='Base model identifier (e.g., meta-llama/Llama-3-8B)')
+@click.option('--base-model', type=str, default='mistralai/Mistral-7B-Instruct-v0.2', help='Base model identifier (default: mistralai/Mistral-7B-Instruct-v0.2)')
 @click.option('--rank', type=int, default=16, help='LoRA rank (default: 16)')
 @click.option('--save', type=str, required=True, help='Output path for safetensors file')
 @click.option('--mode', type=str, default=None, help='Generation mode: doc, metadata, or text (auto-inferred if not specified)')
