@@ -101,6 +101,13 @@ except ImportError:
     tpot_monitor = None
     adapter_cache = None
 
+# Efficiency monitoring
+try:
+    from tessera_hypernetwork.efficiency import EfficiencyDashboard
+    efficiency_dashboard = EfficiencyDashboard()
+except ImportError:
+    efficiency_dashboard = None
+
 
 def record_generation_latency(latency_ms: float):
     """Record generation latency for monitoring."""
@@ -130,6 +137,11 @@ def get_latency_stats() -> Dict[str, float]:
         stats["tpot"] = tpot_monitor.get_stats()
     if adapter_cache:
         stats["adapter_cache"] = adapter_cache.get_stats()
+
+    # Add efficiency stats if available
+    if efficiency_dashboard:
+        stats["efficiency"] = efficiency_dashboard.get_dashboard()
+        stats["efficiency_score"] = efficiency_dashboard.get_efficiency_score()
 
     return stats
 
@@ -243,6 +255,18 @@ async def generate(req: GenerateRequest):
     # Record TTFT
     if ttft_monitor:
         ttft_monitor.record_ttft(latency_ms)
+
+    # Record efficiency metrics
+    if efficiency_dashboard:
+        # Estimate token counts (in practice, these would come from the tokenizer)
+        input_tokens = len(content.split()) if isinstance(content, str) else 100
+        output_tokens = 0  # Adapter generation doesn't produce output tokens
+        efficiency_dashboard.record_request(
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            generation_time_ms=latency_ms,
+            input_length=input_tokens,
+        )
 
     # Return raw bytes — no JSON wrapping
     return Response(content=adapter_bytes, media_type="application/octet-stream")
