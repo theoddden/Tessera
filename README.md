@@ -3,6 +3,7 @@
 # Generate per-session LoRA adapters for inference tasks using hypernetwork synthesis.
 
 Features
+
 Metadata-to-LoRA: Generate adapters from structured user metadata (JSON)
 Text-to-LoRA: Generate adapters from natural language descriptions
 Doc-to-LoRA with SHINE: Generate adapters from document content using SHINE (ICML 2026) for long-context internalization
@@ -11,17 +12,22 @@ OpenAI-compatible API: Easy integration with existing tooling
 Installation
 pip install tessera-hypernetwork
 Quick Start
+
 Generate LoRA Adapter from Metadata
+
 tessera generate \
   --from-metadata '{"task": "classification", "domain": "medical"}' \
   --save ./adapter.safetensors
 The --base-model argument is optional and defaults to mistralai/Mistral-7B-Instruct-v0.2.
 
 Generate LoRA Adapter from Text Description
+
 tessera generate \
   --from-text "Senior litigation associate specializing in IP law" \
   --save ./adapter.safetensors
+
 Generate LoRA Adapter from Document
+
 tessera generate \
   --from-doc ./document.txt \
   --save ./adapter.safetensors
@@ -31,7 +37,9 @@ Check Server Health
 tessera health --url http://localhost:8000
 List Available Base Models
 tessera list
-CLI Commands
+
+# CLI Commands
+
 Generate
 Generate LoRA adapters from metadata, text, or documents:
 
