@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tessera-hypernetwork"
-version = "1.0.2"
+version = "1.0.3"
 description = "Generate per-session LoRA adapters for inference tasks"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -35,6 +35,7 @@ dependencies = [
     "requests>=2.31.0",
     "sentence-transformers>=2.0.0",
     "transformers>=4.0.0",
+    "numpy<2",
 ]
 
 [project.optional-dependencies]
