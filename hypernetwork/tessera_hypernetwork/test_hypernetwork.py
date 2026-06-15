@@ -68,9 +68,9 @@ def test_adapter_generation_latency():
                 "messages": [{"role": "user", "content": json.dumps(metadata)}],
                 "base_model": base_model,
                 "target_rank": target_rank,
-                "response_format": {"type": "safetensors"}
+                "response_format": {"type": "safetensors"},
             },
-            timeout=120
+            timeout=120,
         )
         end = time.time()
         latency = end - start
@@ -114,9 +114,9 @@ def test_adapter_generation_batch_latency():
                 "messages": [{"role": "user", "content": json.dumps(meta)}],
                 "base_model": base_model,
                 "target_rank": target_rank,
-                "response_format": {"type": "safetensors"}
+                "response_format": {"type": "safetensors"},
             },
-            timeout=120
+            timeout=120,
         )
         if response.status_code == 200:
             successful += 1
@@ -130,5 +130,6 @@ def test_adapter_generation_batch_latency():
     print(f"  Average per adapter: {avg_per_adapter:.3f}s")
     print(f"  Successful: {successful}/{batch_size}")
 
-    assert successful == batch_size, f"Only {successful}/{batch_size} adapters generated successfully"
-
+    assert successful == batch_size, (
+        f"Only {successful}/{batch_size} adapters generated successfully"
+    )

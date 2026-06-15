@@ -17,6 +17,7 @@ app = FastAPI(title="Tessera Hypernetwork Service")
 # In-memory adapter storage (for LoRAX-style management)
 loaded_adapters: Dict[str, Dict] = {}
 
+
 # Cache tokenizers for base models
 @lru_cache(maxsize=4)
 def get_tokenizer_cached(base_model: str):
@@ -39,7 +40,10 @@ def get_hypernetwork_cached(base_model: str, mode: str):
 def load_trained_hypernetwork(checkpoint_path: str, device: str = "cuda"):
     """Load trained hypernetwork checkpoint for use in generation."""
     try:
-        from tessera_hypernetwork.train_hypernetwork import DomainConditionedHypernetwork, StructuredMetadataEncoder
+        from tessera_hypernetwork.train_hypernetwork import (
+            DomainConditionedHypernetwork,
+            StructuredMetadataEncoder,
+        )
         from sentence_transformers import SentenceTransformer
 
         checkpoint = torch.load(checkpoint_path, map_location=device)
@@ -47,10 +51,10 @@ def load_trained_hypernetwork(checkpoint_path: str, device: str = "cuda"):
         # Reconstruct models
         base_encoder = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
         encoder = StructuredMetadataEncoder(base_encoder)
-        encoder.load_state_dict(checkpoint['encoder_state_dict'])
+        encoder.load_state_dict(checkpoint["encoder_state_dict"])
 
         # Get dimensions from checkpoint or use defaults
-        num_domains = checkpoint.get('num_domains', 10)
+        num_domains = checkpoint.get("num_domains", 10)
         hypernetwork = DomainConditionedHypernetwork(
             embed_dim=768,
             rank=16,
@@ -59,7 +63,7 @@ def load_trained_hypernetwork(checkpoint_path: str, device: str = "cuda"):
             hidden_dim=2048,
             num_domains=num_domains,
         )
-        hypernetwork.load_state_dict(checkpoint['hypernetwork_state_dict'])
+        hypernetwork.load_state_dict(checkpoint["hypernetwork_state_dict"])
 
         return encoder, hypernetwork
     except Exception as e:
@@ -74,7 +78,9 @@ trained_hypernetwork = None
 
 if CHECKPOINT_PATH and os.path.exists(CHECKPOINT_PATH):
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    trained_encoder, trained_hypernetwork = load_trained_hypernetwork(CHECKPOINT_PATH, device)
+    trained_encoder, trained_hypernetwork = load_trained_hypernetwork(
+        CHECKPOINT_PATH, device
+    )
     if trained_encoder and trained_hypernetwork:
         print(f"Loaded trained hypernetwork from {CHECKPOINT_PATH}")
     else:
@@ -88,6 +94,7 @@ MAX_LATENCY_WINDOW = 100
 # TTFT/TPOT monitoring
 try:
     from tessera_hypernetwork.ttft_tpot import TTFTMonitor, TPOTMonitor, AdapterCache
+
     ttft_monitor = TTFTMonitor()
     tpot_monitor = TPOTMonitor()
     adapter_cache = AdapterCache(max_size=1000)
@@ -99,6 +106,7 @@ except ImportError:
 # Efficiency monitoring
 try:
     from tessera_hypernetwork.efficiency import EfficiencyDashboard
+
     efficiency_dashboard = EfficiencyDashboard()
 except ImportError:
     efficiency_dashboard = None
@@ -117,6 +125,7 @@ def get_latency_stats() -> Dict[str, float]:
         return {}
 
     import numpy as np
+
     stats = {
         "p50_ms": float(np.percentile(generation_latencies, 50)),
         "p95_ms": float(np.percentile(generation_latencies, 95)),
@@ -178,6 +187,7 @@ async def generate(req: GenerateRequest):
     if adapter_cache and mode == "metadata":
         try:
             import json
+
             metadata = json.loads(content) if isinstance(content, str) else content
             domain = metadata.get("domain", "general")
             domain_id = hash(domain) % 10
@@ -192,6 +202,7 @@ async def generate(req: GenerateRequest):
         # Parse content as JSON metadata
         try:
             import json
+
             metadata = json.loads(content) if isinstance(content, str) else content
 
             # Encode metadata
@@ -217,7 +228,9 @@ async def generate(req: GenerateRequest):
                 "lora_B": lora_weights["lora_B"],
             }
         except Exception as e:
-            print(f"Trained hypernetwork generation failed: {e}, falling back to placeholder")
+            print(
+                f"Trained hypernetwork generation failed: {e}, falling back to placeholder"
+            )
             hypernetwork = get_hypernetwork_cached(req.base_model, mode)
             with torch.no_grad():
                 lora_weights = hypernetwork.generate(content, req.target_rank)
@@ -280,7 +293,7 @@ async def metrics():
 async def import_adapter(
     file: UploadFile = File(...),
     adapter_name: str = Form(...),
-    base_model: str = Form(...)
+    base_model: str = Form(...),
 ):
     """Import an adapter into the hypernetwork service"""
     try:
@@ -292,12 +305,17 @@ async def import_adapter(
             "name": adapter_name,
             "base_model": base_model,
             "data": adapter_data,
-            "size": len(adapter_data)
+            "size": len(adapter_data),
         }
 
-        return {"status": "success", "message": f"Adapter '{adapter_name}' imported successfully"}
+        return {
+            "status": "success",
+            "message": f"Adapter '{adapter_name}' imported successfully",
+        }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to import adapter: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to import adapter: {str(e)}"
+        )
 
 
 @app.get("/v1/adapters")
@@ -305,11 +323,13 @@ async def list_adapters():
     """List all loaded adapters"""
     adapters = []
     for name, adapter in loaded_adapters.items():
-        adapters.append({
-            "name": adapter["name"],
-            "base_model": adapter["base_model"],
-            "size": adapter["size"]
-        })
+        adapters.append(
+            {
+                "name": adapter["name"],
+                "base_model": adapter["base_model"],
+                "size": adapter["size"],
+            }
+        )
     return adapters
 
 
@@ -317,10 +337,15 @@ async def list_adapters():
 async def unload_adapter(adapter_name: str):
     """Unload an adapter from the hypernetwork service"""
     if adapter_name not in loaded_adapters:
-        raise HTTPException(status_code=404, detail=f"Adapter '{adapter_name}' not found")
+        raise HTTPException(
+            status_code=404, detail=f"Adapter '{adapter_name}' not found"
+        )
 
     del loaded_adapters[adapter_name]
-    return {"status": "success", "message": f"Adapter '{adapter_name}' unloaded successfully"}
+    return {
+        "status": "success",
+        "message": f"Adapter '{adapter_name}' unloaded successfully",
+    }
 
 
 @app.post("/v1/completions")
@@ -333,7 +358,7 @@ async def completions(req: CompletionsRequest):
     if req.model not in loaded_adapters:
         raise HTTPException(
             status_code=404,
-            detail=f"Adapter '{req.model}' not found. Load it first using tessera lorax import"
+            detail=f"Adapter '{req.model}' not found. Load it first using tessera lorax import",
         )
 
     adapter = loaded_adapters[req.model]
@@ -385,12 +410,11 @@ async def completions(req: CompletionsRequest):
         else:
             raise HTTPException(
                 status_code=response.status_code,
-                detail=f"vLLM request failed: {response.text}"
+                detail=f"vLLM request failed: {response.text}",
             )
     except requests.exceptions.RequestException as e:
         raise HTTPException(
-            status_code=503,
-            detail=f"Failed to connect to vLLM at {vllm_url}: {str(e)}"
+            status_code=503, detail=f"Failed to connect to vLLM at {vllm_url}: {str(e)}"
         )
 
 

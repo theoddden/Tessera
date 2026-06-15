@@ -64,9 +64,7 @@ class MetadataToLoRA:
 
         with torch.no_grad():
             metadata_embedding = self.encoder.encode(
-                metadata_text,
-                convert_to_tensor=True,
-                show_progress_bar=False
+                metadata_text, convert_to_tensor=True, show_progress_bar=False
             )
 
         d_in, d_out = self._get_model_dimensions()

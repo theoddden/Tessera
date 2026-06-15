@@ -15,34 +15,52 @@ def cli():
 
 
 @cli.command()
-@click.option('--from-metadata', type=str, help='JSON metadata string or file path')
-@click.option('--from-text', type=str, help='Natural language description')
-@click.option('--from-doc', type=str, help='Document content or file path')
-@click.option('--base-model', type=str, default='mistralai/Mistral-7B-Instruct-v0.2', help='Base model identifier (default: mistralai/Mistral-7B-Instruct-v0.2)')
-@click.option('--rank', type=int, default=16, help='LoRA rank (default: 16)')
-@click.option('--save', type=str, required=True, help='Output path for safetensors file')
-@click.option('--mode', type=str, default=None, help='Generation mode: doc, metadata, or text (auto-inferred if not specified)')
+@click.option("--from-metadata", type=str, help="JSON metadata string or file path")
+@click.option("--from-text", type=str, help="Natural language description")
+@click.option("--from-doc", type=str, help="Document content or file path")
+@click.option(
+    "--base-model",
+    type=str,
+    default="mistralai/Mistral-7B-Instruct-v0.2",
+    help="Base model identifier (default: mistralai/Mistral-7B-Instruct-v0.2)",
+)
+@click.option("--rank", type=int, default=16, help="LoRA rank (default: 16)")
+@click.option(
+    "--save", type=str, required=True, help="Output path for safetensors file"
+)
+@click.option(
+    "--mode",
+    type=str,
+    default=None,
+    help="Generation mode: doc, metadata, or text (auto-inferred if not specified)",
+)
 def generate(from_metadata, from_text, from_doc, base_model, rank, save, mode):
     """Generate LoRA adapter from metadata, text, or document"""
-    
+
     # Validate input
     inputs_provided = sum([bool(from_metadata), bool(from_text), bool(from_doc)])
     if inputs_provided == 0:
-        click.echo("Error: Must provide one of --from-metadata, --from-text, or --from-doc", err=True)
+        click.echo(
+            "Error: Must provide one of --from-metadata, --from-text, or --from-doc",
+            err=True,
+        )
         raise click.Abort()
     if inputs_provided > 1:
-        click.echo("Error: Must provide exactly one of --from-metadata, --from-text, or --from-doc", err=True)
+        click.echo(
+            "Error: Must provide exactly one of --from-metadata, --from-text, or --from-doc",
+            err=True,
+        )
         raise click.Abort()
-    
+
     # Determine mode
     if mode is None:
         if from_metadata:
-            mode = 'metadata'
+            mode = "metadata"
         elif from_doc:
-            mode = 'doc'
+            mode = "doc"
         else:
-            mode = 'text'
-    
+            mode = "text"
+
     # Load input content
     content = None
     if from_metadata:
@@ -52,82 +70,103 @@ def generate(from_metadata, from_text, from_doc, base_model, rank, save, mode):
         except json.JSONDecodeError:
             # If JSON parsing fails, try as file path
             try:
-                with open(from_metadata, 'r') as f:
+                with open(from_metadata, "r") as f:
                     content = json.load(f)
             except (FileNotFoundError, IOError, json.JSONDecodeError):
-                click.echo("Error: --from-metadata must be valid JSON or a file path containing JSON", err=True)
+                click.echo(
+                    "Error: --from-metadata must be valid JSON or a file path containing JSON",
+                    err=True,
+                )
                 raise click.Abort()
     elif from_doc:
         # Try as file path first, then use as direct content
         try:
-            with open(from_doc, 'r') as f:
+            with open(from_doc, "r") as f:
                 content = f.read()
         except (FileNotFoundError, IOError):
             content = from_doc
     else:  # from_text
         content = from_text
-    
+
     # Generate LoRA weights
-    click.echo(f"Generating LoRA adapter (mode={mode}, rank={rank}, base_model={base_model})...")
+    click.echo(
+        f"Generating LoRA adapter (mode={mode}, rank={rank}, base_model={base_model})..."
+    )
 
     # Lazy-load heavy dependencies and only import what's needed
     from safetensors.torch import save_file
 
     try:
-        if mode == 'metadata':
+        if mode == "metadata":
             from tessera_hypernetwork.metadata_to_lora import MetadataToLoRA
+
             generator = MetadataToLoRA(base_model, default_rank=rank)
             lora_weights = generator.generate(content, rank)
-        elif mode == 'doc':
+        elif mode == "doc":
             from tessera_hypernetwork.doc_to_lora import DocToLoRA
+
             generator = DocToLoRA(base_model, use_shine=True, default_rank=rank)
             lora_weights = generator.generate(content, rank)
         else:  # text
             from tessera_hypernetwork.text_to_lora import TextToLoRA
+
             generator = TextToLoRA(base_model, default_rank=rank)
             lora_weights = generator.generate(content, rank)
-        
+
         # Save to safetensors
         output_path = Path(save)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         save_file(lora_weights, str(output_path))
-        
+
         click.echo(f"✓ LoRA adapter saved to {output_path}")
         click.echo(f"  - lora_A shape: {lora_weights['lora_A'].shape}")
         click.echo(f"  - lora_B shape: {lora_weights['lora_B'].shape}")
-        
+
     except Exception as e:
         click.echo(f"Error generating LoRA adapter: {e}", err=True)
         raise click.Abort()
 
 
 @cli.command()
-@click.option('--port', type=int, default=8000, help='Port to serve on (default: 8000)')
-@click.option('--host', type=str, default='0.0.0.0', help='Host to bind to (default: 0.0.0.0)')
-@click.option('--qdrant-url', type=str, default=None, help='Qdrant vector database URL (optional)')
-@click.option('--workers', type=int, default=1, help='Number of worker processes (default: 1)')
+@click.option("--port", type=int, default=8000, help="Port to serve on (default: 8000)")
+@click.option(
+    "--host", type=str, default="0.0.0.0", help="Host to bind to (default: 0.0.0.0)"
+)
+@click.option(
+    "--qdrant-url", type=str, default=None, help="Qdrant vector database URL (optional)"
+)
+@click.option(
+    "--workers", type=int, default=1, help="Number of worker processes (default: 1)"
+)
 def serve(port, host, qdrant_url, workers):
     """Start the Tessera hypernetwork server"""
-    
+
     # Lazy-load uvicorn and server
     import uvicorn
     from tessera_hypernetwork.server import app
-    
+
     if qdrant_url:
-        click.echo(f"Starting Tessera server on {host}:{port} with Qdrant at {qdrant_url}")
+        click.echo(
+            f"Starting Tessera server on {host}:{port} with Qdrant at {qdrant_url}"
+        )
     else:
         click.echo(f"Starting Tessera server on {host}:{port}")
-    
+
     uvicorn.run(app, host=host, port=port, workers=workers)
 
 
 @cli.command()
-@click.option('--url', type=str, default='http://localhost:8000', help='Server URL (default: http://localhost:8000)')
+@click.option(
+    "--url",
+    type=str,
+    default="http://localhost:8000",
+    help="Server URL (default: http://localhost:8000)",
+)
 def health(url):
     """Check server health status"""
-    
+
     import requests
-    
+
     try:
         response = requests.get(f"{url}/health", timeout=5)
         if response.status_code == 200:
@@ -169,10 +208,17 @@ def lorax():
 
 
 @lorax.command()
-@click.option('--path', type=str, required=True, help='Path to the adapter safetensors file')
-@click.option('--name', type=str, required=True, help='Name for the adapter')
-@click.option('--base-model', type=str, required=True, help='Base model identifier')
-@click.option('--server-url', type=str, default='http://localhost:8000', help='Tessera hypernetwork server URL (default: http://localhost:8000)')
+@click.option(
+    "--path", type=str, required=True, help="Path to the adapter safetensors file"
+)
+@click.option("--name", type=str, required=True, help="Name for the adapter")
+@click.option("--base-model", type=str, required=True, help="Base model identifier")
+@click.option(
+    "--server-url",
+    type=str,
+    default="http://localhost:8000",
+    help="Tessera hypernetwork server URL (default: http://localhost:8000)",
+)
 def import_adapter(path, name, base_model, server_url):
     """Import an adapter into the Tessera hypernetwork service"""
 
@@ -182,7 +228,7 @@ def import_adapter(path, name, base_model, server_url):
 
     # Read the adapter file
     try:
-        with open(path, 'rb') as f:
+        with open(path, "rb") as f:
             adapter_data = f.read()
     except FileNotFoundError:
         click.echo(f"Error: Adapter file not found at {path}", err=True)
@@ -197,13 +243,16 @@ def import_adapter(path, name, base_model, server_url):
                 "adapter_name": name,
                 "base_model": base_model,
             },
-            timeout=30
+            timeout=30,
         )
 
         if response.status_code == 200:
             click.echo(f"✓ Adapter '{name}' imported successfully")
         else:
-            click.echo(f"✗ Failed to import adapter: {response.status_code} - {response.text}", err=True)
+            click.echo(
+                f"✗ Failed to import adapter: {response.status_code} - {response.text}",
+                err=True,
+            )
             raise click.Abort()
     except requests.exceptions.RequestException as e:
         click.echo(f"✗ Failed to connect to Tessera server: {e}", err=True)
@@ -211,7 +260,12 @@ def import_adapter(path, name, base_model, server_url):
 
 
 @lorax.command()
-@click.option('--server-url', type=str, default='http://localhost:8000', help='Tessera hypernetwork server URL (default: http://localhost:8000)')
+@click.option(
+    "--server-url",
+    type=str,
+    default="http://localhost:8000",
+    help="Tessera hypernetwork server URL (default: http://localhost:8000)",
+)
 def list_adapters(server_url):
     """List adapters loaded in the Tessera hypernetwork service"""
 
@@ -225,11 +279,16 @@ def list_adapters(server_url):
             if adapters:
                 click.echo("Loaded adapters:")
                 for adapter in adapters:
-                    click.echo(f"  - {adapter.get('name', 'unknown')}: {adapter.get('base_model', 'unknown')} ({adapter.get('size', 0)} bytes)")
+                    click.echo(
+                        f"  - {adapter.get('name', 'unknown')}: {adapter.get('base_model', 'unknown')} ({adapter.get('size', 0)} bytes)"
+                    )
             else:
                 click.echo("No adapters loaded")
         else:
-            click.echo(f"✗ Failed to list adapters: {response.status_code} - {response.text}", err=True)
+            click.echo(
+                f"✗ Failed to list adapters: {response.status_code} - {response.text}",
+                err=True,
+            )
             raise click.Abort()
     except requests.exceptions.RequestException as e:
         click.echo(f"✗ Failed to connect to Tessera server: {e}", err=True)
@@ -237,8 +296,13 @@ def list_adapters(server_url):
 
 
 @lorax.command()
-@click.option('--name', type=str, required=True, help='Name of the adapter to unload')
-@click.option('--server-url', type=str, default='http://localhost:8000', help='Tessera hypernetwork server URL (default: http://localhost:8000)')
+@click.option("--name", type=str, required=True, help="Name of the adapter to unload")
+@click.option(
+    "--server-url",
+    type=str,
+    default="http://localhost:8000",
+    help="Tessera hypernetwork server URL (default: http://localhost:8000)",
+)
 def unload(name, server_url):
     """Unload an adapter from the Tessera hypernetwork service"""
 
@@ -252,7 +316,10 @@ def unload(name, server_url):
         if response.status_code == 200:
             click.echo(f"✓ Adapter '{name}' unloaded successfully")
         else:
-            click.echo(f"✗ Failed to unload adapter: {response.status_code} - {response.text}", err=True)
+            click.echo(
+                f"✗ Failed to unload adapter: {response.status_code} - {response.text}",
+                err=True,
+            )
             raise click.Abort()
     except requests.exceptions.RequestException as e:
         click.echo(f"✗ Failed to connect to Tessera server: {e}", err=True)
@@ -264,5 +331,5 @@ def main():
     cli()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

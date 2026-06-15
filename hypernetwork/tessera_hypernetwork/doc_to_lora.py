@@ -52,9 +52,7 @@ class SHINEProcessor:
         for chunk in chunks:
             with torch.no_grad():
                 chunk_emb = self.encoder.encode(
-                    chunk,
-                    convert_to_tensor=True,
-                    show_progress_bar=False
+                    chunk, convert_to_tensor=True, show_progress_bar=False
                 )
                 chunk_embeddings.append(chunk_emb)
 
@@ -158,9 +156,7 @@ class DocToLoRA:
             # Standard encoding for shorter documents
             with torch.no_grad():
                 doc_embedding = self.encoder.encode(
-                    document,
-                    convert_to_tensor=True,
-                    show_progress_bar=False
+                    document, convert_to_tensor=True, show_progress_bar=False
                 )
 
         # Generate LoRA weights from embedding using class member projection layers

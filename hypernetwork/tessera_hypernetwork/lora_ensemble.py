@@ -42,18 +42,23 @@ class LoRAEnsemble(nn.Module):
         self.rank = rank
 
         # Create ensemble of hypernetworks
-        from tessera_hypernetwork.train_hypernetwork import DomainConditionedHypernetwork
-        self.models = nn.ModuleList([
-            DomainConditionedHypernetwork(
-                embed_dim=embed_dim,
-                rank=rank,
-                d_in=d_in,
-                d_out=d_out,
-                hidden_dim=hidden_dim,
-                num_domains=num_domains,
-            )
-            for _ in range(num_models)
-        ])
+        from tessera_hypernetwork.train_hypernetwork import (
+            DomainConditionedHypernetwork,
+        )
+
+        self.models = nn.ModuleList(
+            [
+                DomainConditionedHypernetwork(
+                    embed_dim=embed_dim,
+                    rank=rank,
+                    d_in=d_in,
+                    d_out=d_out,
+                    hidden_dim=hidden_dim,
+                    num_domains=num_domains,
+                )
+                for _ in range(num_models)
+            ]
+        )
 
     def forward(
         self,
@@ -145,8 +150,12 @@ class LoRAEnsemble(nn.Module):
         disagreements = []
         for i in range(len(predictions)):
             for j in range(i + 1, len(predictions)):
-                diff_A = (predictions[i]["lora_A"] - predictions[j]["lora_A"]).abs().mean()
-                diff_B = (predictions[i]["lora_B"] - predictions[j]["lora_B"]).abs().mean()
+                diff_A = (
+                    (predictions[i]["lora_A"] - predictions[j]["lora_A"]).abs().mean()
+                )
+                diff_B = (
+                    (predictions[i]["lora_B"] - predictions[j]["lora_B"]).abs().mean()
+                )
                 disagreements.append((diff_A + diff_B).item())
 
         return np.mean(disagreements)
@@ -173,18 +182,23 @@ class WeightedLoRAEnsemble(nn.Module):
         self.num_models = num_models
 
         # Create ensemble
-        from tessera_hypernetwork.train_hypernetwork import DomainConditionedHypernetwork
-        self.models = nn.ModuleList([
-            DomainConditionedHypernetwork(
-                embed_dim=embed_dim,
-                rank=rank,
-                d_in=d_in,
-                d_out=d_out,
-                hidden_dim=hidden_dim,
-                num_domains=num_domains,
-            )
-            for _ in range(num_models)
-        ])
+        from tessera_hypernetwork.train_hypernetwork import (
+            DomainConditionedHypernetwork,
+        )
+
+        self.models = nn.ModuleList(
+            [
+                DomainConditionedHypernetwork(
+                    embed_dim=embed_dim,
+                    rank=rank,
+                    d_in=d_in,
+                    d_out=d_out,
+                    hidden_dim=hidden_dim,
+                    num_domains=num_domains,
+                )
+                for _ in range(num_models)
+            ]
+        )
 
         # Learnable combination weights
         self.combination_weights = nn.Parameter(torch.ones(num_models) / num_models)
@@ -208,8 +222,12 @@ class WeightedLoRAEnsemble(nn.Module):
         weights = F.softmax(self.combination_weights, dim=0)
 
         # Get weighted predictions
-        weighted_lora_A = torch.zeros_like(self.models[0](metadata_emb, domain_id)["lora_A"])
-        weighted_lora_B = torch.zeros_like(self.models[0](metadata_emb, domain_id)["lora_B"])
+        weighted_lora_A = torch.zeros_like(
+            self.models[0](metadata_emb, domain_id)["lora_A"]
+        )
+        weighted_lora_B = torch.zeros_like(
+            self.models[0](metadata_emb, domain_id)["lora_B"]
+        )
 
         for i, model in enumerate(self.models):
             pred = model(metadata_emb, domain_id)
@@ -270,8 +288,12 @@ class DeepEnsembleTrainer:
         model = model.to(self.device)
 
         # Optimizer
-        optimizer = torch.optim.AdamW(model.parameters(), lr=self.learning_rate, weight_decay=1e-5)
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.num_epochs)
+        optimizer = torch.optim.AdamW(
+            model.parameters(), lr=self.learning_rate, weight_decay=1e-5
+        )
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=self.num_epochs
+        )
 
         # Loss
         criterion = nn.MSELoss()
@@ -322,8 +344,10 @@ class DeepEnsembleTrainer:
             history["val_loss"].append(val_loss)
 
             if (epoch + 1) % 10 == 0:
-                print(f"Member {member_idx}, Epoch {epoch+1}/{self.num_epochs} - "
-                      f"Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
+                print(
+                    f"Member {member_idx}, Epoch {epoch + 1}/{self.num_epochs} - "
+                    f"Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}"
+                )
 
         return history
 
@@ -337,7 +361,7 @@ class DeepEnsembleTrainer:
         histories = {}
 
         for i in range(self.ensemble.num_models):
-            print(f"\nTraining ensemble member {i+1}/{self.ensemble.num_models}")
+            print(f"\nTraining ensemble member {i + 1}/{self.ensemble.num_models}")
             seed = 42 + i  # Different seed for each member
             histories[i] = self.train_member(i, seed)
 
@@ -398,7 +422,9 @@ if __name__ == "__main__":
     print(f"Ensemble disagreement: {disagreement:.4f}")
 
     # OOD detection
-    is_ood = detect_out_of_distribution(ensemble, metadata_emb, domain_id, threshold=1.0)
+    is_ood = detect_out_of_distribution(
+        ensemble, metadata_emb, domain_id, threshold=1.0
+    )
     print(f"Is out-of-distribution: {is_ood}")
 
     print("\nLoRA ensemble test passed!")

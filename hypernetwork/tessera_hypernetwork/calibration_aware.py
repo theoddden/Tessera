@@ -61,13 +61,15 @@ def expected_calibration_error(
             # MCE contribution
             mce = max(mce, torch.abs(accuracy_in_bin - confidence_in_bin).item())
 
-            bin_metrics.append({
-                "bin_lower": bin_lower.item(),
-                "bin_upper": bin_upper.item(),
-                "accuracy": accuracy_in_bin.item(),
-                "confidence": confidence_in_bin.item(),
-                "count": in_bin.sum().item(),
-            })
+            bin_metrics.append(
+                {
+                    "bin_lower": bin_lower.item(),
+                    "bin_upper": bin_upper.item(),
+                    "accuracy": accuracy_in_bin.item(),
+                    "confidence": confidence_in_bin.item(),
+                    "count": in_bin.sum().item(),
+                }
+            )
 
     metrics = {
         "ece": ece.item(),
@@ -204,7 +206,9 @@ class CalibrationAwareLoss(nn.Module):
         return {
             "total_loss": total_loss,
             "mse_loss": mse_loss.item(),
-            "calibration_loss": calib_loss.item() if isinstance(calib_loss, torch.Tensor) else calib_loss,
+            "calibration_loss": calib_loss.item()
+            if isinstance(calib_loss, torch.Tensor)
+            else calib_loss,
             "calibration_metrics": calib_metrics,
         }
 
@@ -349,9 +353,11 @@ def train_with_calibration(
         history["train_mce"].append(train_mce)
         history["val_mce"].append(val_mce)
 
-        print(f"Epoch {epoch+1}/{num_epochs} - "
-              f"Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, "
-              f"Train ECE: {train_ece:.4f}, Val ECE: {val_ece:.4f}")
+        print(
+            f"Epoch {epoch + 1}/{num_epochs} - "
+            f"Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, "
+            f"Train ECE: {train_ece:.4f}, Val ECE: {val_ece:.4f}"
+        )
 
     return history
 

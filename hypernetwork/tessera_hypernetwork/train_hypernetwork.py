@@ -27,6 +27,7 @@ import numpy as np
 @dataclass
 class DomainConfig:
     """Configuration for domain-specific training parameters."""
+
     name: str
     difficulty: int  # 1-5, higher = harder
     priority: int  # Training order (lower = earlier)
@@ -35,12 +36,27 @@ class DomainConfig:
 
 # Domain difficulty ranking based on observations
 DOMAIN_CONFIGS = {
-    "international_law": DomainConfig("international_law", difficulty=1, priority=1, vocabulary_distinctiveness=0.9),
-    "jurisprudence": DomainConfig("jurisprudence", difficulty=1, priority=1, vocabulary_distinctiveness=0.85),
-    "medical": DomainConfig("medical", difficulty=2, priority=2, vocabulary_distinctiveness=0.8),
-    "computer_science": DomainConfig("computer_science", difficulty=3, priority=3, vocabulary_distinctiveness=0.7),
-    "high_school_statistics": DomainConfig("high_school_statistics", difficulty=5, priority=5, vocabulary_distinctiveness=0.4),
-    "econometrics": DomainConfig("econometrics", difficulty=5, priority=5, vocabulary_distinctiveness=0.3),
+    "international_law": DomainConfig(
+        "international_law", difficulty=1, priority=1, vocabulary_distinctiveness=0.9
+    ),
+    "jurisprudence": DomainConfig(
+        "jurisprudence", difficulty=1, priority=1, vocabulary_distinctiveness=0.85
+    ),
+    "medical": DomainConfig(
+        "medical", difficulty=2, priority=2, vocabulary_distinctiveness=0.8
+    ),
+    "computer_science": DomainConfig(
+        "computer_science", difficulty=3, priority=3, vocabulary_distinctiveness=0.7
+    ),
+    "high_school_statistics": DomainConfig(
+        "high_school_statistics",
+        difficulty=5,
+        priority=5,
+        vocabulary_distinctiveness=0.4,
+    ),
+    "econometrics": DomainConfig(
+        "econometrics", difficulty=5, priority=5, vocabulary_distinctiveness=0.3
+    ),
 }
 
 
@@ -61,7 +77,7 @@ class StructuredMetadataEncoder(nn.Module):
         # Fusion layer to combine field embeddings
         self.fusion = nn.TransformerEncoder(
             nn.TransformerEncoderLayer(d_model=embed_dim, nhead=8, batch_first=True),
-            num_layers=2
+            num_layers=2,
         )
 
     def forward(self, metadata: Dict[str, Any]) -> torch.Tensor:
@@ -157,7 +173,9 @@ class DomainConditionedHypernetwork(nn.Module):
         self.domain_scale_A = nn.Parameter(torch.ones(num_domains))
         self.domain_scale_B = nn.Parameter(torch.ones(num_domains))
 
-    def forward(self, metadata_embedding: torch.Tensor, domain_id: int) -> Dict[str, torch.Tensor]:
+    def forward(
+        self, metadata_embedding: torch.Tensor, domain_id: int
+    ) -> Dict[str, torch.Tensor]:
         """Generate LoRA weights conditioned on domain."""
         device = metadata_embedding.device
 
@@ -288,7 +306,9 @@ class SyntheticTargetDataset(Dataset):
         }
         return model_dims.get(self.base_model, (4096, 4096))
 
-    def _generate_target_weights(self, metadata: Dict[str, Any]) -> Dict[str, torch.Tensor]:
+    def _generate_target_weights(
+        self, metadata: Dict[str, Any]
+    ) -> Dict[str, torch.Tensor]:
         """Generate synthetic target LoRA weights based on domain.
 
         Uses domain-specific random seeds to create deterministic but
@@ -303,7 +323,10 @@ class SyntheticTargetDataset(Dataset):
 
         # Generate domain-specific weights with vocabulary distinctiveness factor
         vocab_distinctiveness = DOMAIN_CONFIGS.get(
-            domain, DomainConfig(domain, difficulty=3, priority=3, vocabulary_distinctiveness=0.5)
+            domain,
+            DomainConfig(
+                domain, difficulty=3, priority=3, vocabulary_distinctiveness=0.5
+            ),
         ).vocabulary_distinctiveness
 
         # Higher distinctiveness = larger magnitude weights
@@ -333,12 +356,16 @@ class EmbeddingSimilarityChecker:
         self.encoder = encoder
         self.similarity_history = []
 
-    def check_similarity(self, metadata_list: List[Dict[str, Any]], threshold: float = 0.95) -> Dict[str, float]:
+    def check_similarity(
+        self, metadata_list: List[Dict[str, Any]], threshold: float = 0.95
+    ) -> Dict[str, float]:
         """Check average pairwise cosine similarity of metadata embeddings."""
         embeddings = []
         for metadata in metadata_list:
             text = json.dumps(metadata, indent=2)
-            emb = self.encoder.encode(text, convert_to_tensor=True, show_progress_bar=False)
+            emb = self.encoder.encode(
+                text, convert_to_tensor=True, show_progress_bar=False
+            )
             embeddings.append(emb)
 
         embeddings = torch.stack(embeddings)
@@ -365,7 +392,9 @@ class EmbeddingSimilarityChecker:
         }
 
         if result["collapse_detected"]:
-            print(f"WARNING: Encoder collapse detected! Avg similarity: {avg_similarity:.3f}")
+            print(
+                f"WARNING: Encoder collapse detected! Avg similarity: {avg_similarity:.3f}"
+            )
 
         return result
 
@@ -424,12 +453,12 @@ class CrossDomainEvaluator:
                 sim_a = torch.nn.functional.cosine_similarity(
                     source_adapter["lora_A"].flatten(),
                     target_adapter["lora_A"].flatten(),
-                    dim=0
+                    dim=0,
                 ).item()
                 sim_b = torch.nn.functional.cosine_similarity(
                     source_adapter["lora_B"].flatten(),
                     target_adapter["lora_B"].flatten(),
-                    dim=0
+                    dim=0,
                 ).item()
 
                 contamination_scores[target_domain] = (sim_a + sim_b) / 2
@@ -484,7 +513,10 @@ def initialize_with_domain_averages(
 
         # Generate domain-specific initialization
         vocab_distinctiveness = DOMAIN_CONFIGS.get(
-            domain, DomainConfig(domain, difficulty=3, priority=3, vocabulary_distinctiveness=0.5)
+            domain,
+            DomainConfig(
+                domain, difficulty=3, priority=3, vocabulary_distinctiveness=0.5
+            ),
         ).vocabulary_distinctiveness
         scale = 0.05 * (1.0 + vocab_distinctiveness)
 
@@ -564,9 +596,7 @@ def train_hypernetwork(
 
     # Optimizer with weight decay for regularization
     optimizer = optim.AdamW(
-        hypernetwork.parameters(),
-        lr=learning_rate,
-        weight_decay=1e-5
+        hypernetwork.parameters(), lr=learning_rate, weight_decay=1e-5
     )
 
     # Learning rate scheduler
@@ -576,7 +606,9 @@ def train_hypernetwork(
     criterion = nn.MSELoss()
 
     # Loglikelihood-aligned loss (weighted MSE)
-    def loglikelihood_aligned_loss(pred: Dict[str, torch.Tensor], target: Dict[str, torch.Tensor]) -> torch.Tensor:
+    def loglikelihood_aligned_loss(
+        pred: Dict[str, torch.Tensor], target: Dict[str, torch.Tensor]
+    ) -> torch.Tensor:
         """Compute loss aligned with loglikelihood objective."""
         loss_a = criterion(pred["lora_A"], target["lora_A"])
         loss_b = criterion(pred["lora_B"], target["lora_B"])
@@ -584,8 +616,10 @@ def train_hypernetwork(
         # Weight B matrix higher (affects output more directly)
         return loss_a + 2.0 * loss_b
 
-    best_val_loss = float('inf')
-    epochs_per_stage = num_epochs // num_curriculum_stages if use_curriculum else num_epochs
+    best_val_loss = float("inf")
+    epochs_per_stage = (
+        num_epochs // num_curriculum_stages if use_curriculum else num_epochs
+    )
 
     for epoch in range(num_epochs):
         # Determine curriculum stage
@@ -600,11 +634,15 @@ def train_hypernetwork(
         encoder.eval()  # Keep encoder frozen
         train_loss = 0.0
 
-        for batch_idx, (metadata_batch, target_batch, domain_id_batch) in enumerate(train_loader):
+        for batch_idx, (metadata_batch, target_batch, domain_id_batch) in enumerate(
+            train_loader
+        ):
             optimizer.zero_grad()
 
             batch_loss = 0.0
-            for metadata, target_weights, domain_id in zip(metadata_batch, target_batch, domain_id_batch):
+            for metadata, target_weights, domain_id in zip(
+                metadata_batch, target_batch, domain_id_batch
+            ):
                 # Encode metadata
                 metadata_emb = encoder(metadata)
 
@@ -633,7 +671,9 @@ def train_hypernetwork(
         with torch.no_grad():
             for metadata_batch, target_batch, domain_id_batch in val_loader:
                 batch_loss = 0.0
-                for metadata, target_weights, domain_id in zip(metadata_batch, target_batch, domain_id_batch):
+                for metadata, target_weights, domain_id in zip(
+                    metadata_batch, target_batch, domain_id_batch
+                ):
                     metadata_emb = encoder(metadata)
                     pred_weights = hypernetwork(metadata_emb, domain_id)
                     loss = loglikelihood_aligned_loss(pred_weights, target_weights)
@@ -659,32 +699,42 @@ def train_hypernetwork(
                 hypernetwork, encoder, device
             )
 
-        print(f"Epoch {epoch+1}/{num_epochs} (Stage {current_stage}/{num_curriculum_stages}) - "
-              f"Train Loss: {train_loss:.6f}, Val Loss: {val_loss:.6f}, LR: {scheduler.get_last_lr()[0]:.6f}")
+        print(
+            f"Epoch {epoch + 1}/{num_epochs} (Stage {current_stage}/{num_curriculum_stages}) - "
+            f"Train Loss: {train_loss:.6f}, Val Loss: {val_loss:.6f}, LR: {scheduler.get_last_lr()[0]:.6f}"
+        )
 
         if similarity_report:
-            print(f"  Embedding Similarity: {similarity_report['avg_similarity']:.3f} "
-                  f"(collapse: {similarity_report['collapse_detected']})")
+            print(
+                f"  Embedding Similarity: {similarity_report['avg_similarity']:.3f} "
+                f"(collapse: {similarity_report['collapse_detected']})"
+            )
 
         if contamination_report:
-            avg_contamination = np.mean([
-                np.mean(list(scores.values())) for scores in contamination_report.values()
-            ])
+            avg_contamination = np.mean(
+                [
+                    np.mean(list(scores.values()))
+                    for scores in contamination_report.values()
+                ]
+            )
             print(f"  Cross-domain Contamination: {avg_contamination:.3f}")
 
         # Save checkpoint
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             checkpoint_path = os.path.join(output_dir, "best_hypernetwork.pt")
-            torch.save({
-                'epoch': epoch,
-                'hypernetwork_state_dict': hypernetwork.state_dict(),
-                'encoder_state_dict': encoder.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-                'scheduler_state_dict': scheduler.state_dict(),
-                'val_loss': val_loss,
-                'current_stage': current_stage,
-            }, checkpoint_path)
+            torch.save(
+                {
+                    "epoch": epoch,
+                    "hypernetwork_state_dict": hypernetwork.state_dict(),
+                    "encoder_state_dict": encoder.state_dict(),
+                    "optimizer_state_dict": optimizer.state_dict(),
+                    "scheduler_state_dict": scheduler.state_dict(),
+                    "val_loss": val_loss,
+                    "current_stage": current_stage,
+                },
+                checkpoint_path,
+            )
             print(f"  Saved best checkpoint to {checkpoint_path}")
 
     print("Training complete!")
@@ -695,35 +745,70 @@ def main():
     """Main training entry point with advanced asymmetric training."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="Train MetadataToLoRA hypernetwork with asymmetric training")
-    parser.add_argument("--metadata-dir", type=str, required=True,
-                        help="Directory containing metadata JSON files")
-    parser.add_argument("--targets-dir", type=str, default=None,
-                        help="Directory containing target LoRA safetensors (if None, uses synthetic targets)")
-    parser.add_argument("--base-model", type=str, default="mistralai/Mistral-7B-Instruct-v0.2",
-                        help="Base model identifier")
-    parser.add_argument("--rank", type=int, default=16,
-                        help="LoRA rank")
-    parser.add_argument("--batch-size", type=int, default=4,
-                        help="Batch size")
-    parser.add_argument("--epochs", type=int, default=50,
-                        help="Number of training epochs")
-    parser.add_argument("--lr", type=float, default=1e-3,
-                        help="Learning rate")
-    parser.add_argument("--output-dir", type=str, default="./checkpoints",
-                        help="Output directory for checkpoints")
-    parser.add_argument("--device", type=str, default="cuda",
-                        help="Device to train on")
-    parser.add_argument("--use-curriculum", action="store_true", default=True,
-                        help="Use curriculum learning by domain difficulty")
-    parser.add_argument("--num-curriculum-stages", type=int, default=5,
-                        help="Number of curriculum stages")
-    parser.add_argument("--check-similarity", action="store_true", default=True,
-                        help="Check embedding similarity for encoder collapse")
-    parser.add_argument("--check-contamination", action="store_true", default=True,
-                        help="Check cross-domain contamination")
-    parser.add_argument("--encoder-model", type=str, default="sentence-transformers/all-MiniLM-L6-v2",
-                        help="Sentence encoder model")
+    parser = argparse.ArgumentParser(
+        description="Train MetadataToLoRA hypernetwork with asymmetric training"
+    )
+    parser.add_argument(
+        "--metadata-dir",
+        type=str,
+        required=True,
+        help="Directory containing metadata JSON files",
+    )
+    parser.add_argument(
+        "--targets-dir",
+        type=str,
+        default=None,
+        help="Directory containing target LoRA safetensors (if None, uses synthetic targets)",
+    )
+    parser.add_argument(
+        "--base-model",
+        type=str,
+        default="mistralai/Mistral-7B-Instruct-v0.2",
+        help="Base model identifier",
+    )
+    parser.add_argument("--rank", type=int, default=16, help="LoRA rank")
+    parser.add_argument("--batch-size", type=int, default=4, help="Batch size")
+    parser.add_argument(
+        "--epochs", type=int, default=50, help="Number of training epochs"
+    )
+    parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate")
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default="./checkpoints",
+        help="Output directory for checkpoints",
+    )
+    parser.add_argument("--device", type=str, default="cuda", help="Device to train on")
+    parser.add_argument(
+        "--use-curriculum",
+        action="store_true",
+        default=True,
+        help="Use curriculum learning by domain difficulty",
+    )
+    parser.add_argument(
+        "--num-curriculum-stages",
+        type=int,
+        default=5,
+        help="Number of curriculum stages",
+    )
+    parser.add_argument(
+        "--check-similarity",
+        action="store_true",
+        default=True,
+        help="Check embedding similarity for encoder collapse",
+    )
+    parser.add_argument(
+        "--check-contamination",
+        action="store_true",
+        default=True,
+        help="Check cross-domain contamination",
+    )
+    parser.add_argument(
+        "--encoder-model",
+        type=str,
+        default="sentence-transformers/all-MiniLM-L6-v2",
+        help="Sentence encoder model",
+    )
 
     args = parser.parse_args()
 
@@ -742,7 +827,9 @@ def main():
         print("Using real target LoRA weights from fine-tuned models")
         dataset = LoRATargetDataset(args.metadata_dir, args.targets_dir)
     else:
-        print("Using synthetic target weights (domain-seeded with vocabulary distinctiveness)")
+        print(
+            "Using synthetic target weights (domain-seeded with vocabulary distinctiveness)"
+        )
         dataset = SyntheticTargetDataset(args.metadata_dir, args.base_model, args.rank)
 
     domain_to_id = dataset.domain_to_id
@@ -751,17 +838,24 @@ def main():
     # Split into train/val
     train_size = int(0.8 * len(dataset))
     val_size = len(dataset) - train_size
-    train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
+    train_dataset, val_dataset = torch.utils.data.random_split(
+        dataset, [train_size, val_size]
+    )
 
     # Create data loaders (with curriculum if enabled)
     if args.use_curriculum:
         print(f"Using curriculum learning with {args.num_curriculum_stages} stages")
         train_loader = curriculum_data_loader(
-            train_dataset, domain_to_id, args.batch_size,
-            current_stage=1, num_stages=args.num_curriculum_stages
+            train_dataset,
+            domain_to_id,
+            args.batch_size,
+            current_stage=1,
+            num_stages=args.num_curriculum_stages,
         )
     else:
-        train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+        train_loader = DataLoader(
+            train_dataset, batch_size=args.batch_size, shuffle=True
+        )
 
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
 
@@ -800,9 +894,13 @@ def main():
         cross_domain_evaluator = CrossDomainEvaluator(args.metadata_dir)
 
     # Train
-    print(f"\nStarting training with {len(train_dataset)} train samples, {len(val_dataset)} val samples")
+    print(
+        f"\nStarting training with {len(train_dataset)} train samples, {len(val_dataset)} val samples"
+    )
     print(f"Domains: {list(domain_to_id.keys())}")
-    print(f"Domain configs: {[(d, DOMAIN_CONFIGS.get(d, None).difficulty if DOMAIN_CONFIGS.get(d) else 'N/A') for d in domain_to_id.keys()]}")
+    print(
+        f"Domain configs: {[(d, DOMAIN_CONFIGS.get(d, None).difficulty if DOMAIN_CONFIGS.get(d) else 'N/A') for d in domain_to_id.keys()]}"
+    )
     print()
 
     train_hypernetwork(

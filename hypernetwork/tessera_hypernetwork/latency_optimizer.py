@@ -31,7 +31,9 @@ class LatencyProfiler:
     def __init__(self):
         self.results = {}
 
-    def profile_generation(self, hypernetwork, metadata: Dict[str, Any], num_runs: int = 10) -> Dict[str, float]:
+    def profile_generation(
+        self, hypernetwork, metadata: Dict[str, Any], num_runs: int = 10
+    ) -> Dict[str, float]:
         """Profile adapter generation latency."""
         latencies = []
 
@@ -96,7 +98,7 @@ class QuantizedHypernetwork(nn.Module):
                 quantized = torch.quantization.quantize_dynamic(
                     module,
                     {nn.Linear},
-                    dtype=torch.qint8 if self.quantization_bits == 8 else torch.qint4
+                    dtype=torch.qint8 if self.quantization_bits == 8 else torch.qint4,
                 )
                 setattr(self.base_hypernetwork, name, quantized)
 
@@ -122,13 +124,15 @@ class BatchProcessor:
         self.hypernetwork = hypernetwork
         self.batch_size = batch_size
 
-    def process_batch(self, metadata_list: List[Dict[str, Any]]) -> List[Dict[str, torch.Tensor]]:
+    def process_batch(
+        self, metadata_list: List[Dict[str, Any]]
+    ) -> List[Dict[str, torch.Tensor]]:
         """Process multiple metadata in a single batch."""
         results = []
 
         # Process in batches
         for i in range(0, len(metadata_list), self.batch_size):
-            batch = metadata_list[i:i + self.batch_size]
+            batch = metadata_list[i : i + self.batch_size]
 
             # Batch encoding (if encoder supports it)
             # For now, process sequentially but with optimized forward pass
@@ -150,7 +154,9 @@ class BatchProcessor:
 class OptimizedHypernetwork(nn.Module):
     """Optimized hypernetwork architecture for faster inference."""
 
-    def __init__(self, embed_dim: int = 768, rank: int = 16, d_in: int = 4096, d_out: int = 4096):
+    def __init__(
+        self, embed_dim: int = 768, rank: int = 16, d_in: int = 4096, d_out: int = 4096
+    ):
         super().__init__()
         self.embed_dim = embed_dim
         self.rank = rank

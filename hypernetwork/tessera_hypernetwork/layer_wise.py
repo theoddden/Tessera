@@ -53,18 +53,23 @@ class LayerWiseHypernetwork(nn.Module):
         self.layer_type_embeddings = nn.Embedding(len(layer_types), embed_dim)
 
         # Layer-specific hypernetworks
-        from tessera_hypernetwork.train_hypernetwork import DomainConditionedHypernetwork
-        self.layer_hypernetworks = nn.ModuleList([
-            DomainConditionedHypernetwork(
-                embed_dim=embed_dim,
-                rank=rank,
-                d_in=d_in,
-                d_out=d_out,
-                hidden_dim=hidden_dim,
-                num_domains=num_domains,
-            )
-            for _ in range(num_layers)
-        ])
+        from tessera_hypernetwork.train_hypernetwork import (
+            DomainConditionedHypernetwork,
+        )
+
+        self.layer_hypernetworks = nn.ModuleList(
+            [
+                DomainConditionedHypernetwork(
+                    embed_dim=embed_dim,
+                    rank=rank,
+                    d_in=d_in,
+                    d_out=d_out,
+                    hidden_dim=hidden_dim,
+                    num_domains=num_domains,
+                )
+                for _ in range(num_layers)
+            ]
+        )
 
         # Fusion layer for combining metadata + layer info
         self.fusion = nn.Sequential(
@@ -131,12 +136,14 @@ class LayerWiseHypernetwork(nn.Module):
             # Generate for both attention and MLP
             for layer_type in self.layer_types:
                 lora = self.forward(metadata_emb, domain_id, layer_idx, layer_type)
-                all_loras.append({
-                    "layer_idx": layer_idx,
-                    "layer_type": layer_type,
-                    "lora_A": lora["lora_A"],
-                    "lora_B": lora["lora_B"],
-                })
+                all_loras.append(
+                    {
+                        "layer_idx": layer_idx,
+                        "layer_type": layer_type,
+                        "lora_A": lora["lora_A"],
+                        "lora_B": lora["lora_B"],
+                    }
+                )
 
         return all_loras
 
@@ -170,7 +177,10 @@ class SharedLayerHypernetwork(nn.Module):
         self.layer_embeddings = nn.Embedding(num_layers, embed_dim)
 
         # Single shared hypernetwork
-        from tessera_hypernetwork.train_hypernetwork import DomainConditionedHypernetwork
+        from tessera_hypernetwork.train_hypernetwork import (
+            DomainConditionedHypernetwork,
+        )
+
         self.hypernetwork = DomainConditionedHypernetwork(
             embed_dim=embed_dim,
             rank=rank,
@@ -234,18 +244,23 @@ class ProgressiveLayerHypernetwork(nn.Module):
         self.stage_size = num_layers // num_stages
 
         # Create hypernetwork for each stage
-        from tessera_hypernetwork.train_hypernetwork import DomainConditionedHypernetwork
-        self.stage_hypernetworks = nn.ModuleList([
-            DomainConditionedHypernetwork(
-                embed_dim=embed_dim,
-                rank=rank,
-                d_in=d_in,
-                d_out=d_out,
-                hidden_dim=hidden_dim,
-                num_domains=num_domains,
-            )
-            for _ in range(num_stages)
-        ])
+        from tessera_hypernetwork.train_hypernetwork import (
+            DomainConditionedHypernetwork,
+        )
+
+        self.stage_hypernetworks = nn.ModuleList(
+            [
+                DomainConditionedHypernetwork(
+                    embed_dim=embed_dim,
+                    rank=rank,
+                    d_in=d_in,
+                    d_out=d_out,
+                    hidden_dim=hidden_dim,
+                    num_domains=num_domains,
+                )
+                for _ in range(num_stages)
+            ]
+        )
 
         # Layer embeddings for fine-grained adjustment
         self.layer_embeddings = nn.Embedding(num_layers, embed_dim)

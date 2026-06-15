@@ -49,6 +49,7 @@ class TTFTMonitor:
             return {}
 
         import numpy as np
+
         times = list(self.ttft_times)
 
         return {
@@ -59,8 +60,12 @@ class TTFTMonitor:
             "min_ms": float(np.min(times)),
             "max_ms": float(np.max(times)),
             "count": len(times),
-            "adapter_gen_p50_ms": float(np.percentile(list(self.adapter_gen_times), 50)) if self.adapter_gen_times else 0,
-            "model_load_p50_ms": float(np.percentile(list(self.model_load_times), 50)) if self.model_load_times else 0,
+            "adapter_gen_p50_ms": float(np.percentile(list(self.adapter_gen_times), 50))
+            if self.adapter_gen_times
+            else 0,
+            "model_load_p50_ms": float(np.percentile(list(self.model_load_times), 50))
+            if self.model_load_times
+            else 0,
         }
 
 
@@ -88,6 +93,7 @@ class TPOTMonitor:
             return {}
 
         import numpy as np
+
         times = list(self.tpot_times)
         tps = list(self.tokens_per_second)
 
@@ -117,6 +123,7 @@ class AdapterCache:
     def _make_key(self, metadata: dict, domain_id: int) -> str:
         """Create cache key from metadata and domain."""
         import json
+
         metadata_str = json.dumps(metadata, sort_keys=True)
         return f"{domain_id}:{metadata_str}"
 
@@ -316,7 +323,9 @@ class EndToEndLatencyBenchmark:
 
         # Compute metrics
         ttft = adapter_time + load_time + token_times[0]
-        tpot_mean = sum(token_times[1:]) / len(token_times[1:]) if len(token_times) > 1 else 0
+        tpot_mean = (
+            sum(token_times[1:]) / len(token_times[1:]) if len(token_times) > 1 else 0
+        )
 
         result = {
             "adapter_time_ms": adapter_time,
@@ -378,6 +387,7 @@ def optimize_ttft(hypernetwork, metadata: dict, domain_id: int) -> Dict[str, flo
 
     # With quantization (8-bit)
     from tessera_hypernetwork.latency_optimizer import QuantizedHypernetwork
+
     quantized = QuantizedHypernetwork(hypernetwork, quantization_bits=8)
 
     start = time.perf_counter()

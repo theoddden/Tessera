@@ -39,6 +39,7 @@ class CLIPGuidedUnlearning(nn.Module):
         # Load CLIP model
         try:
             from transformers import CLIPModel, CLIPProcessor
+
             self.clip_model = CLIPModel.from_pretrained(clip_model_name)
             self.clip_processor = CLIPProcessor.from_pretrained(clip_model_name)
             self.clip_model.eval()
@@ -136,7 +137,9 @@ class CLIPGuidedUnlearning(nn.Module):
             concept_embeddings = self.get_concept_embeddings(concept_list)
 
             # Compute similarity to concepts
-            similarity = self.compute_concept_similarity(metadata_emb, concept_embeddings)
+            similarity = self.compute_concept_similarity(
+                metadata_emb, concept_embeddings
+            )
 
             # Max similarity across all concepts
             max_similarity = similarity.max(dim=-1)[0]
@@ -421,6 +424,7 @@ if __name__ == "__main__":
 
     # Create dummy hypernetwork
     from tessera_hypernetwork.train_hypernetwork import DomainConditionedHypernetwork
+
     base_hn = DomainConditionedHypernetwork(
         embed_dim=768,
         rank=16,
@@ -438,7 +442,9 @@ if __name__ == "__main__":
 
     lora = clip_unlearning(metadata_emb, domain_id)
     print(f"CLIP unlearning - LoRA A shape: {lora['lora_A'].shape}")
-    print(f"CLIP unlearning - Unlearning applied: {lora.get('unlearning_applied', False)}")
+    print(
+        f"CLIP unlearning - Unlearning applied: {lora.get('unlearning_applied', False)}"
+    )
 
     # Test gradient-based unlearning
     grad_unlearning = GradientBasedUnlearning(base_hn)
@@ -446,13 +452,17 @@ if __name__ == "__main__":
 
     lora = grad_unlearning.unlearn_concept(metadata_emb, domain_id, "medical")
     print(f"Gradient unlearning - LoRA A shape: {lora['lora_A'].shape}")
-    print(f"Gradient unlearning - Unlearning applied: {lora.get('unlearning_applied', False)}")
+    print(
+        f"Gradient unlearning - Unlearning applied: {lora.get('unlearning_applied', False)}"
+    )
 
     # Test differential privacy
     dp_unlearning = PrivacyPreservingHypernetwork(base_hn)
     lora = dp_unlearning(metadata_emb, domain_id)
     print(f"DP unlearning - LoRA A shape: {lora['lora_A'].shape}")
-    print(f"DP unlearning - Privacy noise added: {lora.get('privacy_noise_added', False)}")
+    print(
+        f"DP unlearning - Privacy noise added: {lora.get('privacy_noise_added', False)}"
+    )
 
     # Test combined manager
     manager = UnlearningManager(base_hn, use_clip=True, use_dp=True)

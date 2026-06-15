@@ -39,7 +39,9 @@ class TokenCounter:
         self.total_tokens = deque(maxlen=window_size)
         self.generation_times = deque(maxlen=window_size)
 
-    def record_request(self, input_count: int, output_count: int, generation_time_ms: float):
+    def record_request(
+        self, input_count: int, output_count: int, generation_time_ms: float
+    ):
         """Record a request's token usage."""
         self.input_tokens.append(input_count)
         self.output_tokens.append(output_count)
@@ -65,8 +67,12 @@ class TokenCounter:
             "avg_input_tokens": float(np.mean(list(self.input_tokens))),
             "avg_output_tokens": float(np.mean(list(self.output_tokens))),
             "avg_total_tokens": float(np.mean(list(self.total_tokens))),
-            "tokens_per_second": (total_output * 1000) / total_time_ms if total_time_ms > 0 else 0,
-            "output_to_input_ratio": total_output / total_input if total_input > 0 else 0,
+            "tokens_per_second": (total_output * 1000) / total_time_ms
+            if total_time_ms > 0
+            else 0,
+            "output_to_input_ratio": total_output / total_input
+            if total_input > 0
+            else 0,
             "num_requests": len(self.total_tokens),
         }
 
@@ -122,9 +128,7 @@ class SpeculativeDecoder:
             total_drafts += len(draft_tokens)
 
             # Verify with main model
-            accepted, rejected = await self._verify_tokens(
-                current_prompt, draft_tokens
-            )
+            accepted, rejected = await self._verify_tokens(current_prompt, draft_tokens)
             accepted_count += len(accepted)
             rejected_count += len(rejected)
 
@@ -150,9 +154,15 @@ class SpeculativeDecoder:
         generated_text = self._tokens_to_text(generated_tokens)
 
         metrics = {
-            "speculation_ratio": accepted_count / total_drafts if total_drafts > 0 else 0,
-            "acceptance_rate": accepted_count / (accepted_count + rejected_count) if (accepted_count + rejected_count) > 0 else 0,
-            "speedup": 1.0 + (accepted_count / (accepted_count + rejected_count)) if (accepted_count + rejected_count) > 0 else 1.0,
+            "speculation_ratio": accepted_count / total_drafts
+            if total_drafts > 0
+            else 0,
+            "acceptance_rate": accepted_count / (accepted_count + rejected_count)
+            if (accepted_count + rejected_count) > 0
+            else 0,
+            "speedup": 1.0 + (accepted_count / (accepted_count + rejected_count))
+            if (accepted_count + rejected_count) > 0
+            else 1.0,
         }
 
         return generated_text, metrics
@@ -164,7 +174,9 @@ class SpeculativeDecoder:
         await asyncio.sleep(0.001)  # Faster than main model
         return [f"draft_{i}" for i in range(num_tokens)]
 
-    async def _verify_tokens(self, prompt: str, draft_tokens: List[str]) -> Tuple[List[str], List[str]]:
+    async def _verify_tokens(
+        self, prompt: str, draft_tokens: List[str]
+    ) -> Tuple[List[str], List[str]]:
         """Verify draft tokens with main model."""
         accepted = []
         rejected = []
@@ -201,7 +213,9 @@ class SpeculativeDecoder:
             "rejected_tokens": self.rejected_tokens,
             "total_drafts": self.total_drafts,
             "acceptance_rate": self.accepted_tokens / total if total > 0 else 0,
-            "speculation_ratio": self.accepted_tokens / self.total_drafts if self.total_drafts > 0 else 0,
+            "speculation_ratio": self.accepted_tokens / self.total_drafts
+            if self.total_drafts > 0
+            else 0,
         }
 
 
@@ -423,7 +437,9 @@ class EfficiencyDashboard:
         input_length: int,
     ):
         """Record a completed request."""
-        self.token_counter.record_request(input_tokens, output_tokens, generation_time_ms)
+        self.token_counter.record_request(
+            input_tokens, output_tokens, generation_time_ms
+        )
         self.batch_sizer.record_latency(generation_time_ms)
 
     def get_dashboard(self) -> Dict[str, any]:
@@ -465,7 +481,11 @@ class EfficiencyDashboard:
         score += batch_util * 20
 
         # Coalescing (max 10 points)
-        coalesce_ratio = coalesce_stats.get("coalesced_count", 0) / max(1, coalesce_stats.get("coalesced_count", 1) + coalesce_stats.get("pending_count", 0))
+        coalesce_ratio = coalesce_stats.get("coalesced_count", 0) / max(
+            1,
+            coalesce_stats.get("coalesced_count", 1)
+            + coalesce_stats.get("pending_count", 0),
+        )
         score += coalesce_ratio * 10
 
         return min(100, score)
@@ -486,7 +506,9 @@ if __name__ == "__main__":
         pass
 
     decoder = SpeculativeDecoder(MockModel(), MockModel())
-    text, metrics = asyncio.run(decoder.generate_with_speculation("test", max_tokens=10))
+    text, metrics = asyncio.run(
+        decoder.generate_with_speculation("test", max_tokens=10)
+    )
     print(f"Generated: {text}")
     print("Speculation stats:", decoder.get_stats())
 

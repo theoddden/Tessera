@@ -30,13 +30,21 @@ def train_hypernetwork(
     print("=" * 60)
 
     cmd = [
-        "python", "-m", "tessera_hypernetwork.train_hypernetwork",
-        "--metadata-dir", metadata_dir,
-        "--base-model", base_model,
-        "--rank", str(rank),
-        "--epochs", str(epochs),
-        "--output-dir", output_dir,
-        "--device", device,
+        "python",
+        "-m",
+        "tessera_hypernetwork.train_hypernetwork",
+        "--metadata-dir",
+        metadata_dir,
+        "--base-model",
+        base_model,
+        "--rank",
+        str(rank),
+        "--epochs",
+        str(epochs),
+        "--output-dir",
+        output_dir,
+        "--device",
+        device,
     ]
 
     if use_curriculum:
@@ -116,7 +124,12 @@ if CHECKPOINT_PATH and os.path.exists(CHECKPOINT_PATH):
         print("Could not find insertion point in server file")
         return False
 
-    server_content = server_content[:import_end] + checkpoint_loading_code + "\n" + server_content[import_end:]
+    server_content = (
+        server_content[:import_end]
+        + checkpoint_loading_code
+        + "\n"
+        + server_content[import_end:]
+    )
 
     # Write updated server
     with open(server_file, "w") as f:
@@ -156,11 +169,16 @@ def generate_adapters_with_trained_hypernetwork(
 
         # Use CLI to generate adapter
         cmd = [
-            "tessera", "generate",
-            "--from-metadata", json.dumps(metadata),
-            "--base-model", base_model,
-            "--rank", str(rank),
-            "--save", output_path,
+            "tessera",
+            "generate",
+            "--from-metadata",
+            json.dumps(metadata),
+            "--base-model",
+            base_model,
+            "--rank",
+            str(rank),
+            "--save",
+            output_path,
         ]
 
         try:
@@ -192,10 +210,15 @@ def run_benchmark_evaluation(
     for adapter_file in sorted(Path(adapters_dir).glob("*.safetensors")):
         adapter_name = adapter_file.stem
         cmd = [
-            "tessera", "lorax", "import-adapter",
-            "--file", str(adapter_file),
-            "--adapter-name", adapter_name,
-            "--base-model", base_model,
+            "tessera",
+            "lorax",
+            "import-adapter",
+            "--file",
+            str(adapter_file),
+            "--adapter-name",
+            adapter_name,
+            "--base-model",
+            base_model,
         ]
         try:
             subprocess.run(cmd, check=True, capture_output=True)
@@ -207,10 +230,14 @@ def run_benchmark_evaluation(
     print("\nRunning lm_eval benchmark...")
     cmd = [
         "lm_eval",
-        "--model", "local-completions",
-        "--model_args", f"base_url={vllm_url}",
-        "--tasks", "mmlu_abstract_algebra,mmlu_anatomy,mmlu_business_ethics",
-        "--output_path", results_dir,
+        "--model",
+        "local-completions",
+        "--model_args",
+        f"base_url={vllm_url}",
+        "--tasks",
+        "mmlu_abstract_algebra,mmlu_anatomy,mmlu_business_ethics",
+        "--output_path",
+        results_dir,
     ]
 
     try:
@@ -285,29 +312,56 @@ def compare_results(
 
 def main():
     """Run full training and evaluation pipeline."""
-    parser = argparse.ArgumentParser(description="Train and evaluate Tessera hypernetwork")
-    parser.add_argument("--metadata-dir", type=str, required=True,
-                        help="Directory containing metadata JSON files")
-    parser.add_argument("--checkpoints-dir", type=str, default="./checkpoints",
-                        help="Directory for training checkpoints")
-    parser.add_argument("--adapters-dir", type=str, default="./trained_adapters",
-                        help="Directory for generated adapters")
-    parser.add_argument("--results-dir", type=str, default="./trained_results",
-                        help="Directory for benchmark results")
-    parser.add_argument("--baseline-results", type=str, default=None,
-                        help="Path to baseline results for comparison")
-    parser.add_argument("--base-model", type=str, default="mistralai/Mistral-7B-Instruct-v0.2",
-                        help="Base model identifier")
-    parser.add_argument("--rank", type=int, default=16,
-                        help="LoRA rank")
-    parser.add_argument("--epochs", type=int, default=50,
-                        help="Training epochs")
-    parser.add_argument("--device", type=str, default="cuda",
-                        help="Training device")
-    parser.add_argument("--skip-training", action="store_true",
-                        help="Skip training, use existing checkpoint")
-    parser.add_argument("--skip-evaluation", action="store_true",
-                        help="Skip benchmark evaluation")
+    parser = argparse.ArgumentParser(
+        description="Train and evaluate Tessera hypernetwork"
+    )
+    parser.add_argument(
+        "--metadata-dir",
+        type=str,
+        required=True,
+        help="Directory containing metadata JSON files",
+    )
+    parser.add_argument(
+        "--checkpoints-dir",
+        type=str,
+        default="./checkpoints",
+        help="Directory for training checkpoints",
+    )
+    parser.add_argument(
+        "--adapters-dir",
+        type=str,
+        default="./trained_adapters",
+        help="Directory for generated adapters",
+    )
+    parser.add_argument(
+        "--results-dir",
+        type=str,
+        default="./trained_results",
+        help="Directory for benchmark results",
+    )
+    parser.add_argument(
+        "--baseline-results",
+        type=str,
+        default=None,
+        help="Path to baseline results for comparison",
+    )
+    parser.add_argument(
+        "--base-model",
+        type=str,
+        default="mistralai/Mistral-7B-Instruct-v0.2",
+        help="Base model identifier",
+    )
+    parser.add_argument("--rank", type=int, default=16, help="LoRA rank")
+    parser.add_argument("--epochs", type=int, default=50, help="Training epochs")
+    parser.add_argument("--device", type=str, default="cuda", help="Training device")
+    parser.add_argument(
+        "--skip-training",
+        action="store_true",
+        help="Skip training, use existing checkpoint",
+    )
+    parser.add_argument(
+        "--skip-evaluation", action="store_true", help="Skip benchmark evaluation"
+    )
 
     args = parser.parse_args()
 

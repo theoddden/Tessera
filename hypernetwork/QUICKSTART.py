@@ -7,7 +7,9 @@ This is the simplest way to use Tessera Hypernetwork.
 from tessera_hypernetwork.metadata_to_lora import MetadataToLoRA
 
 
-def generate_adapter_simple(metadata: dict, base_model: str = "mistralai/Mistral-7B-Instruct-v0.2"):
+def generate_adapter_simple(
+    metadata: dict, base_model: str = "mistralai/Mistral-7B-Instruct-v0.2"
+):
     """
     Generate a LoRA adapter from metadata.
 
@@ -33,7 +35,7 @@ if __name__ == "__main__":
         "domain": "legal",
         "role": "attorney",
         "specialty": "contract_law",
-        "jurisdiction": "US"
+        "jurisdiction": "US",
     }
 
     print("Generating adapter...")

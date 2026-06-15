@@ -57,9 +57,7 @@ class TextToLoRA:
 
         with torch.no_grad():
             text_embedding = self.encoder.encode(
-                description,
-                convert_to_tensor=True,
-                show_progress_bar=False
+                description, convert_to_tensor=True, show_progress_bar=False
             )
 
         d_in, d_out = self._get_model_dimensions()
