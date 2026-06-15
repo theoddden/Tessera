@@ -1,6 +1,6 @@
 # Tessera Hypernetwork
 
-Generate per-session LoRA adapters for inference tasks using hypernetwork synthesis.
+Generate per-session LoRA adapters for inference tasks.
 
 ## Features
 
