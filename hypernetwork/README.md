@@ -1,16 +1,14 @@
 # Tessera Hypernetwork
 
-Generate per-session LoRA adapters for inference tasks. This is the Python hypernetwork service component of Tessera, which works alongside the Rust core to provide LoRA adapter generation via hypernetwork synthesis.
+Generate per-session LoRA adapters for inference tasks using hypernetwork synthesis.
 
 ## Features
 
-- **Doc-to-LoRA with SHINE**: Generate adapters from document content using SHINE (ICML 2026) for long-context internalization
+- **Metadata-to-LoRA**: Generate adapters from structured user metadata (JSON)
 - **Text-to-LoRA**: Generate adapters from natural language descriptions
-- **Metadata-to-LoRA**: Generate adapters from structured user metadata
-- **LoRAX-style Adapter Management**: Import, list, and unload adapters via CLI and API
-- **OpenAI-compatible Completions**: `/v1/completions` endpoint for lm_eval integration
-- **OpenAI-compatible API**: Easy integration with existing tooling
+- **Doc-to-LoRA with SHINE**: Generate adapters from document content using SHINE (ICML 2026) for long-context internalization
 - **FastAPI**: Modern async Python web framework
+- **OpenAI-compatible API**: Easy integration with existing tooling
 
 ## Installation
 
@@ -18,94 +16,151 @@ Generate per-session LoRA adapters for inference tasks. This is the Python hyper
 pip install tessera-hypernetwork
 ```
 
-## Usage
+## Quick Start
+
+### Generate LoRA Adapter from Metadata
+
+```bash
+tessera generate \
+  --from-metadata '{"task": "classification", "domain": "medical"}' \
+  --save ./adapter.safetensors
+```
+
+The `--base-model` argument is optional and defaults to `mistralai/Mistral-7B-Instruct-v0.2`.
+
+### Generate LoRA Adapter from Text Description
+
+```bash
+tessera generate \
+  --from-text "Senior litigation associate specializing in IP law" \
+  --save ./adapter.safetensors
+```
+
+### Generate LoRA Adapter from Document
+
+```bash
+tessera generate \
+  --from-doc ./document.txt \
+  --save ./adapter.safetensors
+```
+
+### Start the Hypernetwork Server
+
+```bash
+tessera serve --port 8000 --host 0.0.0.0
+```
+
+### Check Server Health
+
+```bash
+tessera health --url http://localhost:8000
+```
+
+### List Available Base Models
+
+```bash
+tessera list
+```
+
+## CLI Commands
+
+### Generate
+
+Generate LoRA adapters from metadata, text, or documents:
+
+```bash
+# From metadata (JSON string or file)
+tessera generate \
+  --from-metadata '{"task": "classification", "domain": "medical"}' \
+  --base-model mistralai/Mistral-7B-Instruct-v0.2 \
+  --rank 16 \
+  --save ./adapter.safetensors
+
+# From text description
+tessera generate \
+  --from-text "Medical diagnosis assistant" \
+  --base-model mistralai/Mistral-7B-Instruct-v0.2 \
+  --rank 16 \
+  --save ./adapter.safetensors
+
+# From document
+tessera generate \
+  --from-doc ./document.txt \
+  --base-model mistralai/Mistral-7B-Instruct-v0.2 \
+  --rank 16 \
+  --save ./adapter.safetensors
+```
+
+**Options**:
+- `--from-metadata`: JSON metadata string or file path
+- `--from-text`: Natural language description
+- `--from-doc`: Document content or file path
+- `--base-model`: Base model identifier (default: mistralai/Mistral-7B-Instruct-v0.2)
+- `--rank`: LoRA rank (default: 16)
+- `--save`: Output path for safetensors file (required)
+- `--mode`: Generation mode: doc, metadata, or text (auto-inferred if not specified)
+
+### Serve
+
+Start the hypernetwork server:
+
+```bash
+tessera serve --port 8000 --host 0.0.0.0
+```
+
+**Options**:
+- `--port`: Port to serve on (default: 8000)
+- `--host`: Host to bind to (default: 0.0.0.0)
+- `--qdrant-url`: Qdrant vector database URL (optional)
+- `--workers`: Number of worker processes (default: 1)
+
+### Health
+
+Check server health status:
+
+```bash
+tessera health --url http://localhost:8000
+```
+
+**Options**:
+- `--url`: Server URL (default: http://localhost:8000)
+
+### List
+
+List available base models and their dimensions:
+
+```bash
+tessera list
+```
 
 ### LoRAX Adapter Management
 
-The hypernetwork service provides LoRAX-style adapter management for loading and serving LoRA adapters:
+Import, list, and unload adapters:
 
 ```bash
-# Import an adapter into the service
-tessera lorax import --path ./adapter.safetensors --name my-adapter --base-model meta-llama/Llama-3-8B --server-url http://localhost:8000
+# Import an adapter
+tessera lorax import-adapter \
+  --path ./adapter.safetensors \
+  --name my-adapter \
+  --base-model mistralai/Mistral-7B-Instruct-v0.2 \
+  --server-url http://localhost:8000
 
 # List loaded adapters
-tessera lorax list --server-url http://localhost:8000
+tessera lorax list-adapters --server-url http://localhost:8000
 
 # Unload an adapter
 tessera lorax unload --name my-adapter --server-url http://localhost:8000
 ```
 
-**API Endpoints**:
-- `POST /v1/adapters` - Import adapter safetensors
-- `GET /v1/adapters` - List loaded adapters
-- `DELETE /v1/adapters/{name}` - Unload adapter
-
-### OpenAI-Compatible Completions
-
-The `/v1/completions` endpoint provides OpenAI-compatible completions for lm_eval integration:
-
-```bash
-curl -X POST http://localhost:8000/v1/completions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "my-adapter",
-    "prompt": "Hello, world!",
-    "max_tokens": 10
-  }'
-```
-
-The endpoint looks up the adapter by name from the loaded adapters registry and forwards the request to vLLM.
-
-### CLI Commands
-
-The `tessera` CLI provides commands for generating LoRA adapters and running the hypernetwork server:
-
-```bash
-# Generate LoRA adapter from metadata
-tessera generate --from-metadata '{"task": "classification", "domain": "medical"}' \
-  --base-model meta-llama/Llama-3-8B \
-  --rank 16 \
-  --save ./adapter.safetensors
-
-# Generate LoRA adapter from text description
-tessera generate --from-text "Senior litigation associate specializing in IP law" \
-  --base-model meta-llama/Llama-3-8B \
-  --rank 16 \
-  --save ./adapter.safetensors
-
-# Generate LoRA adapter from document
-tessera generate --from-doc ./document.txt \
-  --base-model meta-llama/Llama-3-8B \
-  --rank 16 \
-  --save ./adapter.safetensors
-
-# Start the hypernetwork server
-tessera serve --port 8080 --host 0.0.0.0
-
-# Start server with Qdrant vector database
-tessera serve --port 8080 --qdrant-url http://localhost:6333
-
-# Check server health
-tessera health --url http://localhost:8000
-
-# List available base models
-tessera list
-```
-
-### Server Mode
-
-You can also run the server directly:
-
-```bash
-python -m tessera_hypernetwork.server
-```
-
-## API
+## API Endpoints
 
 The hypernetwork service provides a FastAPI server with the following endpoints:
 
 - `POST /v1/generate` - Generate a LoRA adapter for a given prompt
 - `GET /health` - Health check endpoint
+- `POST /v1/adapters` - Import adapter safetensors
+- `GET /v1/adapters` - List loaded adapters
+- `DELETE /v1/adapters/{name}` - Unload adapter
 
 ## Development
 
@@ -121,52 +176,11 @@ Run tests:
 pytest
 ```
 
-## Integration with Tessera
-
-This hypernetwork service is designed to work with the Tessera Rust core. The Rust core handles semantic caching, vector similarity search, and adapter composition, while this Python service handles the actual LoRA adapter generation via hypernetwork synthesis.
-
-### Full Tessera CLI Lifecycle
-
-The Tessera hypernetwork service provides a comprehensive CLI for LoRA adapter generation and serving:
+Run linting:
 
 ```bash
-# Generate LoRA adapter from metadata (JSON string or file)
-tessera generate --from-metadata '{"task": "classification", "domain": "medical"}' \
-  --base-model meta-llama/Llama-3-8B \
-  --rank 16 \
-  --save ./adapter.safetensors
-
-# Generate LoRA adapter from natural language description
-tessera generate --from-text "Senior litigation associate specializing in IP law" \
-  --base-model meta-llama/Llama-3-8B \
-  --rank 16 \
-  --save ./adapter.safetensors
-
-# Generate LoRA adapter from document content
-tessera generate --from-doc ./document.txt \
-  --base-model meta-llama/Llama-3-8B \
-  --rank 16 \
-  --save ./adapter.safetensors
-
-# Start the hypernetwork server
-tessera serve --port 8080 --host 0.0.0.0
-
-# Start server with Qdrant vector database integration
-tessera serve --port 8080 --qdrant-url http://localhost:6333
-
-# Check server health status
-tessera health --url http://localhost:8000
-
-# List available base models and their dimensions
-tessera list
-
-# LoRAX adapter management
-tessera lorax import --path ./adapter.safetensors --name my-adapter --base-model meta-llama/Llama-3-8B --server-url http://localhost:8000
-tessera lorax list --server-url http://localhost:8000
-tessera lorax unload --name my-adapter --server-url http://localhost:8000
+ruff check .
 ```
-
-For the complete Tessera system, see: https://github.com/theoddden/Tessera
 
 ## License
 
