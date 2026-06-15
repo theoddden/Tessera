@@ -784,7 +784,7 @@ def main():
     )
 
     # Initialize with domain-averaged targets
-    domain_targets = initialize_with_domain_averages(
+    initialize_with_domain_averages(
         hypernetwork, args.metadata_dir, args.base_model, args.rank
     )
 

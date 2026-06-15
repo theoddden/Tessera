@@ -2,20 +2,15 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 import torch
 from safetensors.torch import save as save_safetensors
-from fastapi.responses import Response, StreamingResponse
+from fastapi.responses import Response
 import io
 from typing import Optional, List, Dict, Union
 from tessera_hypernetwork.doc_to_lora import DocToLoRA
-from tessera_hypernetwork.metadata_to_lora import MetadataToLoRA
-from tessera_hypernetwork.text_to_lora import TextToLoRA
 from functools import lru_cache
-from pathlib import Path
 import requests
 from transformers import AutoTokenizer
 import os
 import time
-import asyncio
-import json
 
 app = FastAPI(title="Tessera Hypernetwork Service")
 
@@ -180,16 +175,14 @@ async def generate(req: GenerateRequest):
     mode = req.mode if req.mode else infer_mode(content)
 
     # Check adapter cache if available
-    cache_key = None
     if adapter_cache and mode == "metadata":
         try:
             import json
             metadata = json.loads(content) if isinstance(content, str) else content
             domain = metadata.get("domain", "general")
             domain_id = hash(domain) % 10
-            cache_key = f"{domain_id}:{json.dumps(metadata, sort_keys=True)}"
             cached_adapter = adapter_cache.get(metadata, domain_id)
-        except:
+        except Exception:
             cached_adapter = None
     else:
         cached_adapter = None
@@ -202,7 +195,6 @@ async def generate(req: GenerateRequest):
             metadata = json.loads(content) if isinstance(content, str) else content
 
             # Encode metadata
-            device = next(trained_hypernetwork.parameters()).device
             metadata_emb = trained_encoder(metadata)
 
             # Get domain ID

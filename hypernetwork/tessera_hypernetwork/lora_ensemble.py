@@ -13,7 +13,8 @@ Key features:
 
 import torch
 import torch.nn as nn
-from typing import Dict, List, Optional, Tuple
+import torch.nn.functional as F
+from typing import Dict, List
 import numpy as np
 
 
