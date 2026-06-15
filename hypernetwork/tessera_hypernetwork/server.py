@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 import torch
 from safetensors.torch import save as save_safetensors
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 import io
 from typing import Optional, List, Dict, Union
 from tessera_hypernetwork.doc_to_lora import DocToLoRA
@@ -14,6 +14,8 @@ import requests
 from transformers import AutoTokenizer
 import os
 import time
+import asyncio
+import json
 
 app = FastAPI(title="Tessera Hypernetwork Service")
 
@@ -88,6 +90,17 @@ if CHECKPOINT_PATH and os.path.exists(CHECKPOINT_PATH):
 generation_latencies = []
 MAX_LATENCY_WINDOW = 100
 
+# TTFT/TPOT monitoring
+try:
+    from tessera_hypernetwork.ttft_tpot import TTFTMonitor, TPOTMonitor, AdapterCache
+    ttft_monitor = TTFTMonitor()
+    tpot_monitor = TPOTMonitor()
+    adapter_cache = AdapterCache(max_size=1000)
+except ImportError:
+    ttft_monitor = None
+    tpot_monitor = None
+    adapter_cache = None
+
 
 def record_generation_latency(latency_ms: float):
     """Record generation latency for monitoring."""
@@ -102,13 +115,23 @@ def get_latency_stats() -> Dict[str, float]:
         return {}
 
     import numpy as np
-    return {
+    stats = {
         "p50_ms": float(np.percentile(generation_latencies, 50)),
         "p95_ms": float(np.percentile(generation_latencies, 95)),
         "p99_ms": float(np.percentile(generation_latencies, 99)),
         "mean_ms": float(np.mean(generation_latencies)),
         "count": len(generation_latencies),
     }
+
+    # Add TTFT/TPOT stats if available
+    if ttft_monitor:
+        stats["ttft"] = ttft_monitor.get_stats()
+    if tpot_monitor:
+        stats["tpot"] = tpot_monitor.get_stats()
+    if adapter_cache:
+        stats["adapter_cache"] = adapter_cache.get_stats()
+
+    return stats
 
 
 class GenerateRequest(BaseModel):
@@ -138,10 +161,26 @@ async def generate(req: GenerateRequest):
     Return safetensors bytes directly.
     """
     start_time = time.perf_counter()
+    adapter_gen_start = time.perf_counter()
 
     content = req.messages[0]["content"]
     # Use mode from request if provided, otherwise infer from content
     mode = req.mode if req.mode else infer_mode(content)
+
+    # Check adapter cache if available
+    cache_key = None
+    if adapter_cache and mode == "metadata":
+        try:
+            import json
+            metadata = json.loads(content) if isinstance(content, str) else content
+            domain = metadata.get("domain", "general")
+            domain_id = hash(domain) % 10
+            cache_key = f"{domain_id}:{json.dumps(metadata, sort_keys=True)}"
+            cached_adapter = adapter_cache.get(metadata, domain_id)
+        except:
+            cached_adapter = None
+    else:
+        cached_adapter = None
 
     # Use trained hypernetwork if available, otherwise fall back to cached models
     if trained_hypernetwork and trained_encoder and mode == "metadata":
@@ -158,9 +197,15 @@ async def generate(req: GenerateRequest):
             domain = metadata.get("domain", "general")
             domain_id = hash(domain) % 10  # Simple hash-based domain ID
 
-            # Generate with trained hypernetwork
-            with torch.no_grad():
-                lora_weights = trained_hypernetwork(metadata_emb, domain_id)
+            # Generate with trained hypernetwork (or use cache)
+            if cached_adapter is None:
+                with torch.no_grad():
+                    lora_weights = trained_hypernetwork(metadata_emb, domain_id)
+                # Cache the result
+                if adapter_cache:
+                    adapter_cache.set(metadata, domain_id, lora_weights)
+            else:
+                lora_weights = cached_adapter
 
             # Convert to format expected by serialization
             lora_weights_dict = {
@@ -182,6 +227,11 @@ async def generate(req: GenerateRequest):
             lora_weights = hypernetwork.generate(content, req.target_rank)
         lora_weights_dict = lora_weights
 
+    # Record adapter generation time
+    adapter_gen_time = (time.perf_counter() - adapter_gen_start) * 1000
+    if ttft_monitor:
+        ttft_monitor.record_adapter_generation(adapter_gen_time)
+
     # Serialize to safetensors bytes
     adapter_bytes = serialize_lora(lora_weights_dict)
 
@@ -189,6 +239,10 @@ async def generate(req: GenerateRequest):
     end_time = time.perf_counter()
     latency_ms = (end_time - start_time) * 1000
     record_generation_latency(latency_ms)
+
+    # Record TTFT
+    if ttft_monitor:
+        ttft_monitor.record_ttft(latency_ms)
 
     # Return raw bytes — no JSON wrapping
     return Response(content=adapter_bytes, media_type="application/octet-stream")
