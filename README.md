@@ -41,15 +41,15 @@ tessera generate \
   --rank 16 \
   --save ./adapter.safetensors
 
-**Options:**
+**'Generate' Sub-Commands:**
 
---from-metadata: JSON metadata string or file path
---from-text: Natural language description
---from-doc: Document content or file path
---base-model: Base model identifier (default: mistralai/Mistral-7B-Instruct-v0.2)
---rank: LoRA rank (default: 16)
---save: Output path for safetensors file (required)
---mode: Generation mode: doc, metadata, or text (auto-inferred if not specified)
+--from-metadata: JSON metadata string or file path \
+--from-text: Natural language description \
+--from-doc: Document content or file path \
+--base-model: Base model identifier (default: mistralai/Mistral-7B-Instruct-v0.2) \
+--rank: LoRA rank (default: 16) \
+--save: Output path for safetensors file (required) \
+--mode: Generation mode: doc, metadata, or text (auto-inferred if not specified) \
 Serve
 
 **Start the hypernetwork server:**
@@ -57,10 +57,10 @@ Serve
 tessera serve --port 8000 --host 0.0.0.0
 Options:
 
---port: Port to serve on (default: 8000)
---host: Host to bind to (default: 0.0.0.0)
---qdrant-url: Qdrant vector database URL (optional)
---workers: Number of worker processes (default: 1)
+--port: Port to serve on (default: 8000) \
+--host: Host to bind to (default: 0.0.0.0) \
+--qdrant-url: Qdrant vector database URL (optional) \
+--workers: Number of worker processes (default: 1) \
 Health
 
 **Check server health status:**
@@ -69,7 +69,9 @@ tessera health --url http://localhost:8000
 Options:
 
 --url: Server URL (default: http://localhost:8000)
-List
+
+**List:**
+
 List available base models and their dimensions:
 
 tessera list
