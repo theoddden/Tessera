@@ -12,6 +12,7 @@ from functools import lru_cache
 from pathlib import Path
 import requests
 from transformers import AutoTokenizer
+import os
 
 app = FastAPI(title="Tessera Hypernetwork Service")
 
@@ -35,6 +36,51 @@ def get_hypernetwork_cached(base_model: str, mode: str):
     # Placeholder for other modes - in production, load actual models
     else:
         return PlaceholderHypernetwork(base_model, mode)
+
+
+def load_trained_hypernetwork(checkpoint_path: str, device: str = "cuda"):
+    """Load trained hypernetwork checkpoint for use in generation."""
+    try:
+        from tessera_hypernetwork.train_hypernetwork import DomainConditionedHypernetwork, StructuredMetadataEncoder
+        from sentence_transformers import SentenceTransformer
+
+        checkpoint = torch.load(checkpoint_path, map_location=device)
+
+        # Reconstruct models
+        base_encoder = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+        encoder = StructuredMetadataEncoder(base_encoder)
+        encoder.load_state_dict(checkpoint['encoder_state_dict'])
+
+        # Get dimensions from checkpoint or use defaults
+        num_domains = checkpoint.get('num_domains', 10)
+        hypernetwork = DomainConditionedHypernetwork(
+            embed_dim=768,
+            rank=16,
+            d_in=4096,
+            d_out=4096,
+            hidden_dim=2048,
+            num_domains=num_domains,
+        )
+        hypernetwork.load_state_dict(checkpoint['hypernetwork_state_dict'])
+
+        return encoder, hypernetwork
+    except Exception as e:
+        print(f"Failed to load trained hypernetwork: {e}")
+        return None, None
+
+
+# Load trained hypernetwork if checkpoint path is set
+CHECKPOINT_PATH = os.environ.get("TESSERA_CHECKPOINT_PATH")
+trained_encoder = None
+trained_hypernetwork = None
+
+if CHECKPOINT_PATH and os.path.exists(CHECKPOINT_PATH):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    trained_encoder, trained_hypernetwork = load_trained_hypernetwork(CHECKPOINT_PATH, device)
+    if trained_encoder and trained_hypernetwork:
+        print(f"Loaded trained hypernetwork from {CHECKPOINT_PATH}")
+    else:
+        print(f"Could not load checkpoint from {CHECKPOINT_PATH}, using placeholder")
 
 
 class GenerateRequest(BaseModel):
@@ -67,15 +113,47 @@ async def generate(req: GenerateRequest):
     # Use mode from request if provided, otherwise infer from content
     mode = req.mode if req.mode else infer_mode(content)
 
-    # Load appropriate hypernetwork model (cached with LRU eviction)
-    hypernetwork = get_hypernetwork_cached(req.base_model, mode)
+    # Use trained hypernetwork if available, otherwise fall back to cached models
+    if trained_hypernetwork and trained_encoder and mode == "metadata":
+        # Parse content as JSON metadata
+        try:
+            import json
+            metadata = json.loads(content) if isinstance(content, str) else content
 
-    # Single forward pass
-    with torch.no_grad():
-        lora_weights = hypernetwork.generate(content, req.target_rank)
+            # Encode metadata
+            device = next(trained_hypernetwork.parameters()).device
+            metadata_emb = trained_encoder(metadata)
+
+            # Get domain ID
+            domain = metadata.get("domain", "general")
+            domain_id = hash(domain) % 10  # Simple hash-based domain ID
+
+            # Generate with trained hypernetwork
+            with torch.no_grad():
+                lora_weights = trained_hypernetwork(metadata_emb, domain_id)
+
+            # Convert to format expected by serialization
+            lora_weights_dict = {
+                "lora_A": lora_weights["lora_A"],
+                "lora_B": lora_weights["lora_B"],
+            }
+        except Exception as e:
+            print(f"Trained hypernetwork generation failed: {e}, falling back to placeholder")
+            hypernetwork = get_hypernetwork_cached(req.base_model, mode)
+            with torch.no_grad():
+                lora_weights = hypernetwork.generate(content, req.target_rank)
+            lora_weights_dict = lora_weights
+    else:
+        # Load appropriate hypernetwork model (cached with LRU eviction)
+        hypernetwork = get_hypernetwork_cached(req.base_model, mode)
+
+        # Single forward pass
+        with torch.no_grad():
+            lora_weights = hypernetwork.generate(content, req.target_rank)
+        lora_weights_dict = lora_weights
 
     # Serialize to safetensors bytes
-    adapter_bytes = serialize_lora(lora_weights)
+    adapter_bytes = serialize_lora(lora_weights_dict)
 
     # Return raw bytes — no JSON wrapping
     return Response(content=adapter_bytes, media_type="application/octet-stream")
