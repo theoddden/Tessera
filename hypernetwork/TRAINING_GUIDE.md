@@ -24,7 +24,6 @@ The training pipeline uses **offline distillation**:
 ```bash
 python -m tessera_hypernetwork.train_hypernetwork \
   --metadata-dir /path/to/metadata_packets \
-  --base-model mistralai/Mistral-7B-Instruct-v0.2 \
   --rank 16 \
   --epochs 50 \
   --output-dir ./checkpoints \

@@ -19,7 +19,6 @@ curl -X POST http://localhost:8000/v1/generate \
   -d '{
     "model": "hypernetwork",
     "messages": [{"role": "user", "content": "legal"}],
-    "base_model": "mistralai/Mistral-7B-Instruct-v0.2",
     "target_rank": 16,
     "response_format": {"type": "safetensors"},
     "mode": "metadata"
@@ -269,7 +268,6 @@ curl -X POST http://localhost:8000/v1/generate \
   -d '{
     "model": "hypernetwork",
     "messages": [{"role": "user", "content": "{\"domain\": \"legal\", \"role\": \"attorney\"}"}],
-    "base_model": "mistralai/Mistral-7B-Instruct-v0.2",
     "target_rank": 16,
     "response_format": {"type": "safetensors"},
     "mode": "metadata"
@@ -291,7 +289,6 @@ time curl -X POST http://localhost:8000/v1/generate \
   -d '{
     "model": "hypernetwork",
     "messages": [{"role": "user", "content": "{\"domain\": \"medical\", \"role\": \"doctor\"}"}],
-    "base_model": "mistralai/Mistral-7B-Instruct-v0.2",
     "target_rank": 16,
     "response_format": {"type": "safetensors"},
     "mode": "metadata"
@@ -306,7 +303,6 @@ time curl -X POST http://localhost:8000/v1/generate \
   -d '{
     "model": "hypernetwork",
     "messages": [{"role": "user", "content": "{\"domain\": \"medical\", \"role\": \"doctor\"}"}],
-    "base_model": "mistralai/Mistral-7B-Instruct-v0.2",
     "target_rank": 16,
     "response_format": {"type": "safetensors"},
     "mode": "metadata"
@@ -347,7 +343,6 @@ for domain in "${domains[@]}"; do
     -d "{
       \"model\": \"hypernetwork\",
       \"messages\": [{\"role\": \"user\", \"content\": \"{\\\"domain\\\": \\\"$domain\\\"}\"}],
-      \"base_model\": \"mistralai/Mistral-7B-Instruct-v0.2\",
       \"target_rank\": 16,
       \"response_format\": {\"type\": \"safetensors\"},
       \"mode\": \"metadata\"
