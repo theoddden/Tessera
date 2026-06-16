@@ -232,23 +232,23 @@ class LoRATargetDataset(Dataset):
     def _load_samples(self) -> List[Tuple[Dict[str, Any], Dict[str, torch.Tensor]]]:
         """Load metadata and target LoRA pairs with robust error handling."""
         samples = []
-        
+
         print(f"Loading metadata from: {self.metadata_dir}")
         print(f"Loading targets from: {self.targets_dir}")
-        
+
         # Load all metadata files
         metadata_files = sorted(self.metadata_dir.glob("*.json"))
         print(f"Found {len(metadata_files)} JSON files in metadata directory")
-        
+
         if len(metadata_files) == 0:
             print(f"WARNING: No JSON files found in {self.metadata_dir}")
             return []
-        
+
         for meta_file in metadata_files:
             try:
                 with open(meta_file) as f:
                     metadata = json.load(f)
-                
+
                 # Handle various JSON structures
                 metadata_list = []
                 if isinstance(metadata, dict):
@@ -256,13 +256,15 @@ class LoRATargetDataset(Dataset):
                 elif isinstance(metadata, list):
                     metadata_list = [m for m in metadata if isinstance(m, dict)]
                 else:
-                    print(f"Warning: Unexpected JSON structure in {meta_file.name}, skipping")
+                    print(
+                        f"Warning: Unexpected JSON structure in {meta_file.name}, skipping"
+                    )
                     continue
-                
+
                 for meta in metadata_list:
                     adapter_id = meta.get("id", meta_file.stem)
                     target_file = self.targets_dir / f"{adapter_id}.safetensors"
-                    
+
                     if target_file.exists():
                         # Load target LoRA weights
                         target_weights = safetensors.torch.load_file(str(target_file))
@@ -319,32 +321,34 @@ class SyntheticTargetDataset(Dataset):
         metadata_dir = Path(self.metadata_dir)
         print(f"Loading metadata from: {metadata_dir}")
         print(f"Directory exists: {metadata_dir.exists()}")
-        
+
         if not metadata_dir.exists():
             print(f"ERROR: Metadata directory does not exist: {metadata_dir}")
             return []
-        
+
         metadata_files = sorted(metadata_dir.glob("*.json"))
         print(f"Found {len(metadata_files)} JSON files")
-        
+
         if len(metadata_files) == 0:
             print(f"WARNING: No JSON files found in {metadata_dir}")
             # Try listing all files for debugging
             all_files = list(metadata_dir.iterdir()) if metadata_dir.exists() else []
             print(f"All files in directory: {[f.name for f in all_files]}")
             return []
-        
+
         samples = []
         for meta_file in metadata_files:
             try:
                 with open(meta_file) as f:
                     metadata = json.load(f)
-                
+
                 # Handle various JSON structures
                 if isinstance(metadata, dict):
                     # Single metadata object
                     if "domain" not in metadata:
-                        print(f"Warning: {meta_file.name} missing 'domain' field, using 'general'")
+                        print(
+                            f"Warning: {meta_file.name} missing 'domain' field, using 'general'"
+                        )
                         metadata["domain"] = "general"
                     samples.append(metadata)
                 elif isinstance(metadata, list):
@@ -352,18 +356,24 @@ class SyntheticTargetDataset(Dataset):
                     for item in metadata:
                         if isinstance(item, dict):
                             if "domain" not in item:
-                                print(f"Warning: Item in {meta_file.name} missing 'domain' field, using 'general'")
+                                print(
+                                    f"Warning: Item in {meta_file.name} missing 'domain' field, using 'general'"
+                                )
                                 item["domain"] = "general"
                             samples.append(item)
                         else:
-                            print(f"Warning: Skipping non-dict item in {meta_file.name}")
+                            print(
+                                f"Warning: Skipping non-dict item in {meta_file.name}"
+                            )
                 else:
-                    print(f"Warning: Unexpected JSON structure in {meta_file.name}, skipping")
+                    print(
+                        f"Warning: Unexpected JSON structure in {meta_file.name}, skipping"
+                    )
             except json.JSONDecodeError as e:
                 print(f"Error parsing {meta_file.name}: {e}")
             except Exception as e:
                 print(f"Error loading {meta_file.name}: {e}")
-        
+
         print(f"Loaded {len(samples)} metadata samples")
         return samples
 
@@ -685,7 +695,12 @@ def curriculum_data_loader(
         return None
 
     filtered_dataset = torch.utils.data.Subset(dataset, filtered_indices)
-    return DataLoader(filtered_dataset, batch_size=batch_size, shuffle=True, collate_fn=safe_metadata_collate)
+    return DataLoader(
+        filtered_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        collate_fn=safe_metadata_collate,
+    )
 
 
 def train_hypernetwork(
@@ -780,14 +795,19 @@ def train_hypernetwork(
             if train_loader is None:
                 raise ValueError("No samples available for any curriculum stage")
     else:
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=safe_metadata_collate)
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            collate_fn=safe_metadata_collate,
+        )
 
     for epoch in range(num_epochs):
         # Determine curriculum stage
         if use_curriculum:
             current_stage = (epoch // epochs_per_stage) + 1
             current_stage = min(current_stage, num_curriculum_stages)
-            
+
             # Recreate data loader for new stage
             new_train_loader = curriculum_data_loader(
                 train_dataset,
@@ -798,7 +818,9 @@ def train_hypernetwork(
             )
             # Skip this epoch if stage has no samples
             if new_train_loader is None:
-                print(f"Skipping epoch {epoch + 1} - no samples for stage {current_stage}")
+                print(
+                    f"Skipping epoch {epoch + 1} - no samples for stage {current_stage}"
+                )
                 continue
             train_loader = new_train_loader
         else:
@@ -868,7 +890,9 @@ def train_hypernetwork(
                     pred_weights = hypernetwork(metadata_emb, domain_id)
 
                     # Move target tensors to same device as predictions
-                    target_weights = {k: v.to(device) for k, v in target_weights.items()}
+                    target_weights = {
+                        k: v.to(device) for k, v in target_weights.items()
+                    }
 
                     loss = loglikelihood_aligned_loss(pred_weights, target_weights)
                     batch_loss += loss
@@ -1037,7 +1061,12 @@ def main():
     )
 
     # Create validation data loader
-    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, collate_fn=safe_metadata_collate)
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=args.batch_size,
+        shuffle=False,
+        collate_fn=safe_metadata_collate,
+    )
 
     # Initialize sentence encoder
     print(f"Loading sentence encoder: {args.encoder_model}")

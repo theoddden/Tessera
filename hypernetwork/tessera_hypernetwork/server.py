@@ -28,7 +28,9 @@ def get_hypernetwork_weights():
         return str(cache_path)
 
     # 3. Download from HuggingFace on first use
-    print("Downloading Tessera v1.2.0 weights (first use, ~1.2GB, cached at ~/.tessera/)...")
+    print(
+        "Downloading Tessera v1.2.0 weights (first use, ~1.2GB, cached at ~/.tessera/)..."
+    )
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     from huggingface_hub import hf_hub_download
 
@@ -83,7 +85,9 @@ def load_trained_hypernetwork(checkpoint_path: str, device: str = "cuda"):
         print(f"Detected encoder dimension from checkpoint: {encoder_dim}")
 
         # Detect num_domains from checkpoint (from domain_embedding weight shape)
-        domain_embedding_weight = checkpoint["hypernetwork_state_dict"].get("domain_embedding.weight")
+        domain_embedding_weight = checkpoint["hypernetwork_state_dict"].get(
+            "domain_embedding.weight"
+        )
         if domain_embedding_weight is not None:
             num_domains = domain_embedding_weight.shape[0]
             print(f"Detected num_domains from checkpoint: {num_domains}")
