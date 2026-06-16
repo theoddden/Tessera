@@ -11,6 +11,35 @@ import requests
 from transformers import AutoTokenizer
 import os
 import time
+from pathlib import Path
+
+
+def get_hypernetwork_weights():
+    """Get hypernetwork weights path, downloading from HuggingFace if needed."""
+    # 1. User-specified checkpoint takes priority
+    checkpoint = os.environ.get("TESSERA_CHECKPOINT_PATH")
+    if checkpoint and os.path.exists(checkpoint):
+        print(f"Loading checkpoint from {checkpoint}")
+        return checkpoint
+
+    # 2. Check local cache
+    cache_path = Path.home() / ".tessera" / "hypernetwork_v1.2.0.pt"
+    if cache_path.exists():
+        return str(cache_path)
+
+    # 3. Download from HuggingFace on first use
+    print("Downloading Tessera v1.2.0 weights (first use, ~1.2GB, cached at ~/.tessera/)...")
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    from huggingface_hub import hf_hub_download
+
+    downloaded = hf_hub_download(
+        repo_id="southfacing/tessera-weights",
+        filename="hypernetwork_v1.2.0.pt",
+        local_dir=str(cache_path.parent),
+    )
+    print("✓ Weights cached at ~/.tessera/")
+    return downloaded
+
 
 app = FastAPI(title="Tessera Hypernetwork Service")
 
@@ -48,15 +77,27 @@ def load_trained_hypernetwork(checkpoint_path: str, device: str = "cuda"):
 
         checkpoint = torch.load(checkpoint_path, map_location=device)
 
+        # Detect encoder_dim from checkpoint
+        first_weight = next(iter(checkpoint["encoder_state_dict"].values()))
+        encoder_dim = first_weight.shape[-1]
+        print(f"Detected encoder dimension from checkpoint: {encoder_dim}")
+
+        # Detect num_domains from checkpoint (from domain_embedding weight shape)
+        domain_embedding_weight = checkpoint["hypernetwork_state_dict"].get("domain_embedding.weight")
+        if domain_embedding_weight is not None:
+            num_domains = domain_embedding_weight.shape[0]
+            print(f"Detected num_domains from checkpoint: {num_domains}")
+        else:
+            num_domains = checkpoint.get("num_domains", 10)
+            print(f"Using default num_domains: {num_domains}")
+
         # Reconstruct models
         base_encoder = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
-        encoder = StructuredMetadataEncoder(base_encoder)
+        encoder = StructuredMetadataEncoder(base_encoder, embed_dim=encoder_dim)
         encoder.load_state_dict(checkpoint["encoder_state_dict"])
 
-        # Get dimensions from checkpoint or use defaults
-        num_domains = checkpoint.get("num_domains", 10)
         hypernetwork = DomainConditionedHypernetwork(
-            embed_dim=768,
+            embed_dim=encoder_dim,
             rank=16,
             d_in=4096,
             d_out=4096,
@@ -71,20 +112,20 @@ def load_trained_hypernetwork(checkpoint_path: str, device: str = "cuda"):
         return None, None
 
 
-# Load trained hypernetwork if checkpoint path is set
-CHECKPOINT_PATH = os.environ.get("TESSERA_CHECKPOINT_PATH")
+# Load trained hypernetwork with auto-download from HuggingFace
 trained_encoder = None
 trained_hypernetwork = None
 
-if CHECKPOINT_PATH and os.path.exists(CHECKPOINT_PATH):
+checkpoint_path = get_hypernetwork_weights()
+if checkpoint_path:
     device = "cuda" if torch.cuda.is_available() else "cpu"
     trained_encoder, trained_hypernetwork = load_trained_hypernetwork(
-        CHECKPOINT_PATH, device
+        checkpoint_path, device
     )
     if trained_encoder and trained_hypernetwork:
-        print(f"Loaded trained hypernetwork from {CHECKPOINT_PATH}")
+        print(f"Loaded trained hypernetwork from {checkpoint_path}")
     else:
-        print(f"Could not load checkpoint from {CHECKPOINT_PATH}, using placeholder")
+        print(f"Could not load checkpoint from {checkpoint_path}, using placeholder")
 
 
 # Latency monitoring

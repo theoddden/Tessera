@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tessera-hypernetwork"
-version = "1.0.7"
-description = "Generate per-session LoRA adapters for inference tasks"
+version = "1.2.1"
+description = "Generate per-session LoRA adapters for inference tasks using hypernetwork synthesis"
 readme = "README.md"
 requires-python = ">=3.8"
 license = "Apache-2.0"
@@ -37,6 +37,7 @@ dependencies = [
     "transformers>=4.30.0,<4.40.0",
     "numpy<2",
     "protobuf<4",
+    "huggingface_hub>=0.19.0",
 ]
 
 [project.optional-dependencies]

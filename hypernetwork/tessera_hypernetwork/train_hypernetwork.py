@@ -18,6 +18,7 @@ import os
 from pathlib import Path
 from typing import Dict, List, Tuple, Any, Optional
 from torch.utils.data import Dataset, DataLoader
+from torch.utils.data.dataloader import default_collate
 from sentence_transformers import SentenceTransformer
 import safetensors.torch
 from dataclasses import dataclass
@@ -182,6 +183,10 @@ class DomainConditionedHypernetwork(nn.Module):
         # Get domain embedding
         domain_emb = self.domain_embedding(torch.tensor([domain_id], device=device))
 
+        # Ensure both tensors have same number of dimensions
+        # metadata_embedding is [embed_dim] (1D), domain_emb is [1, embed_dim] (2D)
+        domain_emb = domain_emb.squeeze(0)
+
         # Concatenate metadata and domain embeddings
         combined = torch.cat([metadata_embedding, domain_emb], dim=-1)
 
@@ -225,24 +230,49 @@ class LoRATargetDataset(Dataset):
         return {domain: idx for idx, domain in enumerate(sorted(domains))}
 
     def _load_samples(self) -> List[Tuple[Dict[str, Any], Dict[str, torch.Tensor]]]:
-        """Load metadata and target LoRA pairs."""
+        """Load metadata and target LoRA pairs with robust error handling."""
         samples = []
-
+        
+        print(f"Loading metadata from: {self.metadata_dir}")
+        print(f"Loading targets from: {self.targets_dir}")
+        
         # Load all metadata files
         metadata_files = sorted(self.metadata_dir.glob("*.json"))
+        print(f"Found {len(metadata_files)} JSON files in metadata directory")
+        
+        if len(metadata_files) == 0:
+            print(f"WARNING: No JSON files found in {self.metadata_dir}")
+            return []
+        
         for meta_file in metadata_files:
-            with open(meta_file) as f:
-                metadata = json.load(f)
-
-            adapter_id = metadata.get("id", meta_file.stem)
-            target_file = self.targets_dir / f"{adapter_id}.safetensors"
-
-            if target_file.exists():
-                # Load target LoRA weights
-                target_weights = safetensors.torch.load_file(str(target_file))
-                samples.append((metadata, target_weights))
-            else:
-                print(f"Warning: No target file for {adapter_id}, skipping")
+            try:
+                with open(meta_file) as f:
+                    metadata = json.load(f)
+                
+                # Handle various JSON structures
+                metadata_list = []
+                if isinstance(metadata, dict):
+                    metadata_list = [metadata]
+                elif isinstance(metadata, list):
+                    metadata_list = [m for m in metadata if isinstance(m, dict)]
+                else:
+                    print(f"Warning: Unexpected JSON structure in {meta_file.name}, skipping")
+                    continue
+                
+                for meta in metadata_list:
+                    adapter_id = meta.get("id", meta_file.stem)
+                    target_file = self.targets_dir / f"{adapter_id}.safetensors"
+                    
+                    if target_file.exists():
+                        # Load target LoRA weights
+                        target_weights = safetensors.torch.load_file(str(target_file))
+                        samples.append((meta, target_weights))
+                    else:
+                        print(f"Warning: No target file for {adapter_id}, skipping")
+            except json.JSONDecodeError as e:
+                print(f"Error parsing {meta_file.name}: {e}")
+            except Exception as e:
+                print(f"Error loading {meta_file.name}: {e}")
 
         print(f"Loaded {len(samples)} training samples")
         return samples
@@ -285,13 +315,55 @@ class SyntheticTargetDataset(Dataset):
         return {domain: idx for idx, domain in enumerate(sorted(domains))}
 
     def _load_metadata(self) -> List[Dict[str, Any]]:
-        """Load all metadata files."""
-        metadata_files = sorted(self.metadata_dir.glob("*.json"))
+        """Load all metadata files with robust error handling."""
+        metadata_dir = Path(self.metadata_dir)
+        print(f"Loading metadata from: {metadata_dir}")
+        print(f"Directory exists: {metadata_dir.exists()}")
+        
+        if not metadata_dir.exists():
+            print(f"ERROR: Metadata directory does not exist: {metadata_dir}")
+            return []
+        
+        metadata_files = sorted(metadata_dir.glob("*.json"))
+        print(f"Found {len(metadata_files)} JSON files")
+        
+        if len(metadata_files) == 0:
+            print(f"WARNING: No JSON files found in {metadata_dir}")
+            # Try listing all files for debugging
+            all_files = list(metadata_dir.iterdir()) if metadata_dir.exists() else []
+            print(f"All files in directory: {[f.name for f in all_files]}")
+            return []
+        
         samples = []
         for meta_file in metadata_files:
-            with open(meta_file) as f:
-                metadata = json.load(f)
-            samples.append(metadata)
+            try:
+                with open(meta_file) as f:
+                    metadata = json.load(f)
+                
+                # Handle various JSON structures
+                if isinstance(metadata, dict):
+                    # Single metadata object
+                    if "domain" not in metadata:
+                        print(f"Warning: {meta_file.name} missing 'domain' field, using 'general'")
+                        metadata["domain"] = "general"
+                    samples.append(metadata)
+                elif isinstance(metadata, list):
+                    # List of metadata objects
+                    for item in metadata:
+                        if isinstance(item, dict):
+                            if "domain" not in item:
+                                print(f"Warning: Item in {meta_file.name} missing 'domain' field, using 'general'")
+                                item["domain"] = "general"
+                            samples.append(item)
+                        else:
+                            print(f"Warning: Skipping non-dict item in {meta_file.name}")
+                else:
+                    print(f"Warning: Unexpected JSON structure in {meta_file.name}, skipping")
+            except json.JSONDecodeError as e:
+                print(f"Error parsing {meta_file.name}: {e}")
+            except Exception as e:
+                print(f"Error loading {meta_file.name}: {e}")
+        
         print(f"Loaded {len(samples)} metadata samples")
         return samples
 
@@ -529,6 +601,55 @@ def initialize_with_domain_averages(
     return domain_targets
 
 
+def safe_metadata_collate(batch):
+    """Custom collate function that handles missing keys in metadata.
+
+    Keeps metadata as dicts but stringifies individual values that are None or lists.
+    Properly collates target weights as dicts of stacked tensors.
+    """
+    # Separate metadata, target_weights, and domain_id
+    metadata_list = []
+    target_weights_list = []
+    domain_id_list = []
+
+    # Collect all keys present across all metadata items
+    all_keys = set()
+    for metadata, _, _ in batch:
+        all_keys.update(metadata.keys())
+
+    # Normalize each metadata dict to have all keys with cleaned values
+    for metadata, target_weights, domain_id in batch:
+        cleaned_metadata = {}
+        for key in all_keys:
+            value = metadata.get(key, None)
+            # Only stringify individual values, keep as dict
+            if value is None:
+                cleaned_metadata[key] = ""
+            elif isinstance(value, list):
+                cleaned_metadata[key] = json.dumps(value)
+            else:
+                cleaned_metadata[key] = str(value) if value is not None else ""
+        metadata_list.append(cleaned_metadata)
+        target_weights_list.append(target_weights)
+        domain_id_list.append(domain_id)
+
+    # Collate target weights as dict of stacked tensors
+    collated_targets = {}
+    if target_weights_list:
+        # Get all keys from target weights (should be lora_A, lora_B)
+        target_keys = target_weights_list[0].keys()
+        for key in target_keys:
+            # Stack tensors for this key across the batch
+            collated_targets[key] = torch.stack([t[key] for t in target_weights_list])
+
+    # Return metadata as list of dicts, collated targets, and collated domain_ids
+    return (
+        metadata_list,  # List of dicts, not collated
+        collated_targets,  # Dict of stacked tensors
+        default_collate(domain_id_list),
+    )
+
+
 def curriculum_data_loader(
     dataset: Dataset,
     domain_to_id: Dict[str, int],
@@ -548,26 +669,38 @@ def curriculum_data_loader(
     filtered_indices = []
     for idx in range(len(dataset)):
         metadata, _, domain_id = dataset[idx]
-        domain = list(domain_to_id.keys())[domain_id]
-        config = DOMAIN_CONFIGS.get(domain)
+        metadata_domain = metadata.get("domain", "")
+        # Find matching config by prefix (e.g., "medical" matches "medical_genetics")
+        config = None
+        for config_domain, config_obj in DOMAIN_CONFIGS.items():
+            if metadata_domain.startswith(config_domain):
+                config = config_obj
+                break
         if config and config.priority <= current_stage:
             filtered_indices.append(idx)
 
+    # Skip stages with 0 samples
+    if len(filtered_indices) == 0:
+        print(f"Warning: No samples for curriculum stage {current_stage}, skipping")
+        return None
+
     filtered_dataset = torch.utils.data.Subset(dataset, filtered_indices)
-    return DataLoader(filtered_dataset, batch_size=batch_size, shuffle=True)
+    return DataLoader(filtered_dataset, batch_size=batch_size, shuffle=True, collate_fn=safe_metadata_collate)
 
 
 def train_hypernetwork(
     hypernetwork: DomainConditionedHypernetwork,
     encoder: StructuredMetadataEncoder,
-    train_loader: DataLoader,
+    train_dataset: Dataset,
     val_loader: DataLoader,
+    domain_to_id: Dict[str, int],
     num_epochs: int = 10,
     learning_rate: float = 1e-3,
     device: str = "cuda",
     output_dir: str = "./checkpoints",
     use_curriculum: bool = True,
     num_curriculum_stages: int = 5,
+    batch_size: int = 4,
     similarity_checker: Optional[EmbeddingSimilarityChecker] = None,
     cross_domain_evaluator: Optional[CrossDomainEvaluator] = None,
 ):
@@ -577,14 +710,16 @@ def train_hypernetwork(
     Args:
         hypernetwork: DomainConditionedHypernetwork model to train
         encoder: StructuredMetadataEncoder for encoding metadata
-        train_loader: Training data loader
+        train_dataset: Training dataset
         val_loader: Validation data loader
+        domain_to_id: Mapping from domain names to IDs
         num_epochs: Number of training epochs
         learning_rate: Learning rate
         device: Device to train on
         output_dir: Directory to save checkpoints
         use_curriculum: Whether to use curriculum learning by domain difficulty
         num_curriculum_stages: Number of curriculum stages
+        batch_size: Batch size for data loaders
         similarity_checker: Optional embedding similarity checker
         cross_domain_evaluator: Optional cross-domain contamination evaluator
     """
@@ -621,11 +756,51 @@ def train_hypernetwork(
         num_epochs // num_curriculum_stages if use_curriculum else num_epochs
     )
 
+    # Create initial train loader
+    if use_curriculum:
+        train_loader = curriculum_data_loader(
+            train_dataset,
+            domain_to_id,
+            batch_size,
+            current_stage=1,
+            num_stages=num_curriculum_stages,
+        )
+        # If stage 1 has no samples, try next stage
+        if train_loader is None:
+            for stage in range(2, num_curriculum_stages + 1):
+                train_loader = curriculum_data_loader(
+                    train_dataset,
+                    domain_to_id,
+                    batch_size,
+                    current_stage=stage,
+                    num_stages=num_curriculum_stages,
+                )
+                if train_loader is not None:
+                    break
+            if train_loader is None:
+                raise ValueError("No samples available for any curriculum stage")
+    else:
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=safe_metadata_collate)
+
     for epoch in range(num_epochs):
         # Determine curriculum stage
         if use_curriculum:
             current_stage = (epoch // epochs_per_stage) + 1
             current_stage = min(current_stage, num_curriculum_stages)
+            
+            # Recreate data loader for new stage
+            new_train_loader = curriculum_data_loader(
+                train_dataset,
+                domain_to_id,
+                batch_size,
+                current_stage=current_stage,
+                num_stages=num_curriculum_stages,
+            )
+            # Skip this epoch if stage has no samples
+            if new_train_loader is None:
+                print(f"Skipping epoch {epoch + 1} - no samples for stage {current_stage}")
+                continue
+            train_loader = new_train_loader
         else:
             current_stage = num_curriculum_stages
 
@@ -639,15 +814,24 @@ def train_hypernetwork(
         ):
             optimizer.zero_grad()
 
+            # Unpack target_batch from dict of stacked tensors to list of dicts
+            target_weights_list = [
+                {k: target_batch[k][i] for k in target_batch.keys()}
+                for i in range(len(metadata_batch))
+            ]
+
             batch_loss = 0.0
             for metadata, target_weights, domain_id in zip(
-                metadata_batch, target_batch, domain_id_batch
+                metadata_batch, target_weights_list, domain_id_batch
             ):
                 # Encode metadata
                 metadata_emb = encoder(metadata)
 
                 # Generate predicted LoRA weights
                 pred_weights = hypernetwork(metadata_emb, domain_id)
+
+                # Move target tensors to same device as predictions
+                target_weights = {k: v.to(device) for k, v in target_weights.items()}
 
                 # Compute loglikelihood-aligned loss
                 loss = loglikelihood_aligned_loss(pred_weights, target_weights)
@@ -670,12 +854,22 @@ def train_hypernetwork(
 
         with torch.no_grad():
             for metadata_batch, target_batch, domain_id_batch in val_loader:
+                # Unpack target_batch from dict of stacked tensors to list of dicts
+                target_weights_list = [
+                    {k: target_batch[k][i] for k in target_batch.keys()}
+                    for i in range(len(metadata_batch))
+                ]
+
                 batch_loss = 0.0
                 for metadata, target_weights, domain_id in zip(
-                    metadata_batch, target_batch, domain_id_batch
+                    metadata_batch, target_weights_list, domain_id_batch
                 ):
                     metadata_emb = encoder(metadata)
                     pred_weights = hypernetwork(metadata_emb, domain_id)
+
+                    # Move target tensors to same device as predictions
+                    target_weights = {k: v.to(device) for k, v in target_weights.items()}
+
                     loss = loglikelihood_aligned_loss(pred_weights, target_weights)
                     batch_loss += loss
                 batch_loss = batch_loss / len(metadata_batch)
@@ -782,7 +976,7 @@ def main():
     parser.add_argument(
         "--use-curriculum",
         action="store_true",
-        default=True,
+        default=False,
         help="Use curriculum learning by domain difficulty",
     )
     parser.add_argument(
@@ -842,34 +1036,24 @@ def main():
         dataset, [train_size, val_size]
     )
 
-    # Create data loaders (with curriculum if enabled)
-    if args.use_curriculum:
-        print(f"Using curriculum learning with {args.num_curriculum_stages} stages")
-        train_loader = curriculum_data_loader(
-            train_dataset,
-            domain_to_id,
-            args.batch_size,
-            current_stage=1,
-            num_stages=args.num_curriculum_stages,
-        )
-    else:
-        train_loader = DataLoader(
-            train_dataset, batch_size=args.batch_size, shuffle=True
-        )
-
-    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
+    # Create validation data loader
+    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, collate_fn=safe_metadata_collate)
 
     # Initialize sentence encoder
     print(f"Loading sentence encoder: {args.encoder_model}")
     base_encoder = SentenceTransformer(args.encoder_model)
 
-    # Initialize structured metadata encoder
-    encoder = StructuredMetadataEncoder(base_encoder)
+    # Get encoder output dimension dynamically
+    encoder_dim = base_encoder.get_sentence_embedding_dimension()
+    print(f"Encoder output dimension: {encoder_dim}")
 
-    # Initialize domain-conditioned hypernetwork
+    # Initialize structured metadata encoder with dynamic dimension
+    encoder = StructuredMetadataEncoder(base_encoder, embed_dim=encoder_dim)
+
+    # Initialize domain-conditioned hypernetwork with dynamic dimension
     print(f"Initializing domain-conditioned hypernetwork with {num_domains} domains")
     hypernetwork = DomainConditionedHypernetwork(
-        embed_dim=768,
+        embed_dim=encoder_dim,
         rank=args.rank,
         d_in=d_in,
         d_out=d_out,
@@ -906,14 +1090,16 @@ def main():
     train_hypernetwork(
         hypernetwork,
         encoder,
-        train_loader,
+        train_dataset,
         val_loader,
+        domain_to_id,
         num_epochs=args.epochs,
         learning_rate=args.lr,
         device=args.device,
         output_dir=args.output_dir,
         use_curriculum=args.use_curriculum,
         num_curriculum_stages=args.num_curriculum_stages,
+        batch_size=args.batch_size,
         similarity_checker=similarity_checker,
         cross_domain_evaluator=cross_domain_evaluator,
     )

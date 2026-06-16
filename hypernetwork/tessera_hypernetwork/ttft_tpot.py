@@ -168,7 +168,8 @@ async def measure_ttft():
     start = time.perf_counter()
     yield
     end = time.perf_counter()
-    return (end - start) * 1000  # milliseconds
+    # Note: async context managers cannot return values
+    # Use TTFTMonitor class to track measurements instead
 
 
 class StreamingGenerator:
