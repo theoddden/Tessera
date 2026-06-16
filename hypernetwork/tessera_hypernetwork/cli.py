@@ -322,7 +322,7 @@ def pull(model_id):
 @click.option(
     "--max-model-len", type=int, default=8192, help="Maximum model length (default: 8192)"
 )
-def serve(model_id, port, gpu_memory_utilization, tensor_parallel_size, quantization, max_model_len):
+def serve_model(model_id, port, gpu_memory_utilization, tensor_parallel_size, quantization, max_model_len):
     """Start vLLM with a specified base model"""
 
     cache_dir = Path.home() / ".tessera" / "models"
@@ -363,7 +363,7 @@ def serve(model_id, port, gpu_memory_utilization, tensor_parallel_size, quantiza
 
 
 @model.command()
-def list():
+def list_models():
     """List all locally cached base models"""
 
     cache_dir = Path.home() / ".tessera" / "models"
