@@ -5,6 +5,9 @@ Command-line interface for LoRA adapter generation and serving
 
 import click
 import json
+import subprocess
+import sys
+import shutil
 from pathlib import Path
 
 
@@ -128,7 +131,7 @@ def generate(from_metadata, from_text, from_doc, base_model, rank, save, mode):
 
 
 @cli.command()
-@click.option("--port", type=int, default=8000, help="Port to serve on (default: 8000)")
+@click.option("--port", type=int, default=8080, help="Port to serve on (default: 8080)")
 @click.option(
     "--host", type=str, default="0.0.0.0", help="Host to bind to (default: 0.0.0.0)"
 )
@@ -138,8 +141,53 @@ def generate(from_metadata, from_text, from_doc, base_model, rank, save, mode):
 @click.option(
     "--workers", type=int, default=1, help="Number of worker processes (default: 1)"
 )
-def serve(port, host, qdrant_url, workers):
+@click.option(
+    "--base-model",
+    type=str,
+    default=None,
+    help="Base model to auto-start vLLM with (e.g., mistralai/Mistral-7B-Instruct-v0.2)",
+)
+@click.option(
+    "--vllm-port",
+    type=int,
+    default=8000,
+    help="Port for vLLM server (default: 8000)",
+)
+def serve(port, host, qdrant_url, workers, base_model, vllm_port):
     """Start the Tessera hypernetwork server"""
+
+    # Auto-start vLLM if base-model specified
+    if base_model:
+        click.echo(f"Auto-starting vLLM with {base_model} on port {vllm_port}...")
+        cache_dir = Path.home() / ".tessera" / "models"
+        model_path = cache_dir / (base_model.replace("/", "--"))
+        model_arg = str(model_path) if model_path.exists() else base_model
+
+        vllm_cmd = [
+            sys.executable,
+            "-m",
+            "vllm.entrypoints.openai.api_server",
+            "--model",
+            model_arg,
+            "--port",
+            str(vllm_port),
+            "--enable-lora",
+        ]
+
+        # Start vLLM in background
+        try:
+            import subprocess
+
+            vllm_process = subprocess.Popen(
+                vllm_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            click.echo(f"✓ vLLM started on port {vllm_port} (PID: {vllm_process.pid})")
+        except Exception as e:
+            click.echo(f"✗ Failed to start vLLM: {e}", err=True)
+            raise click.Abort()
 
     # Lazy-load uvicorn and server
     import uvicorn
@@ -184,6 +232,28 @@ def health(url):
 def list():
     """List available base models and their dimensions"""
 
+    # Check for cached models
+    cache_dir = Path.home() / ".tessera" / "models"
+    cached_models = []
+    if cache_dir.exists():
+        for model_dir in sorted(cache_dir.iterdir()):
+            if model_dir.is_dir():
+                size = sum(f.stat().st_size for f in model_dir.rglob("*") if f.is_file())
+                model_id = model_dir.name.replace("--", "/")
+                cached_models.append((model_id, size))
+
+    # Show cached models
+    if cached_models:
+        click.echo("Base Models (cached):")
+        for model_id, size in cached_models:
+            click.echo(f"  {model_id}    {size / 1e9:.1f}GB  ○ not running")
+        click.echo("")
+    else:
+        click.echo("Base Models (cached):")
+        click.echo("  No models cached. Run: tessera model pull <model_id>")
+        click.echo("")
+
+    # Show known model dimensions
     model_dims = {
         "meta-llama/Llama-3-8B": (4096, 4096),
         "meta-llama/Llama-3-70B": (8192, 8192),
@@ -191,13 +261,137 @@ def list():
         "deepseek-ai/DeepSeek-V3": (7168, 7168),
     }
 
-    click.echo("Available base models:")
+    click.echo("Known model dimensions:")
     click.echo("")
     for model, (d_in, d_out) in model_dims.items():
         click.echo(f"  {model}")
         click.echo(f"    Dimensions: {d_in} x {d_out}")
     click.echo("")
     click.echo("Default dimensions for unknown models: 4096 x 4096")
+
+
+# Model management commands
+@cli.group()
+def model():
+    """Base model management commands"""
+    pass
+
+
+@model.command()
+@click.argument("model_id")
+def pull(model_id):
+    """Download a base model from HuggingFace Hub and cache locally"""
+
+    from huggingface_hub import snapshot_download
+
+    cache_dir = Path.home() / ".tessera" / "models"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    click.echo(f"Downloading {model_id}...")
+    try:
+        path = snapshot_download(
+            repo_id=model_id,
+            cache_dir=str(cache_dir),
+            ignore_patterns=["*.msgpack", "flax_model*", "tf_model*"],
+        )
+        click.echo(f"✓ Model cached at {path}")
+        click.echo(f"  Use: tessera model serve {model_id}")
+    except Exception as e:
+        click.echo(f"✗ Failed to download model: {e}", err=True)
+        raise click.Abort()
+
+
+@model.command()
+@click.argument("model_id")
+@click.option("--port", type=int, default=8000, help="Port to serve on (default: 8000)")
+@click.option(
+    "--gpu-memory-utilization",
+    type=float,
+    default=None,
+    help="GPU memory utilization fraction (e.g., 0.9)",
+)
+@click.option(
+    "--tensor-parallel-size", type=int, default=1, help="Tensor parallel size (default: 1)"
+)
+@click.option(
+    "--quantization",
+    type=str,
+    default=None,
+    help="Quantization method (e.g., awq, gptq, bitsandbytes)",
+)
+@click.option(
+    "--max-model-len", type=int, default=8192, help="Maximum model length (default: 8192)"
+)
+def serve(model_id, port, gpu_memory_utilization, tensor_parallel_size, quantization, max_model_len):
+    """Start vLLM with a specified base model"""
+
+    cache_dir = Path.home() / ".tessera" / "models"
+    model_path = cache_dir / (model_id.replace("/", "--"))
+
+    # Use cached path if available, otherwise let vLLM download
+    model_arg = str(model_path) if model_path.exists() else model_id
+
+    cmd = [
+        sys.executable,
+        "-m",
+        "vllm.entrypoints.openai.api_server",
+        "--model",
+        model_arg,
+        "--port",
+        str(port),
+        "--tensor-parallel-size",
+        str(tensor_parallel_size),
+        "--max-model-len",
+        str(max_model_len),
+        "--enable-lora",  # always enable LoRA for Tessera
+    ]
+    if gpu_memory_utilization:
+        cmd += ["--gpu-memory-utilization", str(gpu_memory_utilization)]
+    if quantization:
+        cmd += ["--quantization", quantization]
+
+    click.echo(f"Starting vLLM with {model_id} on port {port}...")
+    click.echo(f"Command: {' '.join(cmd)}")
+
+    try:
+        subprocess.run(cmd)
+    except KeyboardInterrupt:
+        click.echo("\n✓ vLLM server stopped")
+    except Exception as e:
+        click.echo(f"✗ Failed to start vLLM: {e}", err=True)
+        raise click.Abort()
+
+
+@model.command()
+def list():
+    """List all locally cached base models"""
+
+    cache_dir = Path.home() / ".tessera" / "models"
+    if not cache_dir.exists():
+        click.echo("No models cached. Run: tessera model pull <model_id>")
+        return
+
+    click.echo("Cached base models:")
+    for model_dir in sorted(cache_dir.iterdir()):
+        if model_dir.is_dir():
+            size = sum(f.stat().st_size for f in model_dir.rglob("*") if f.is_file())
+            model_id = model_dir.name.replace("--", "/")
+            click.echo(f"  {model_id}: {size / 1e9:.1f}GB")
+
+
+@model.command()
+@click.argument("model_id")
+def remove(model_id):
+    """Remove a cached base model to free disk space"""
+
+    cache_dir = Path.home() / ".tessera" / "models"
+    model_path = cache_dir / (model_id.replace("/", "--"))
+    if model_path.exists():
+        shutil.rmtree(model_path)
+        click.echo(f"✓ Removed {model_id}")
+    else:
+        click.echo(f"Model not found: {model_id}", err=True)
+        raise click.Abort()
 
 
 # LoRAX commands
