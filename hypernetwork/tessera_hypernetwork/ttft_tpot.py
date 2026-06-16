@@ -165,11 +165,9 @@ class AdapterCache:
 @asynccontextmanager
 async def measure_ttft():
     """Context manager to measure TTFT."""
-    start = time.perf_counter()
-    yield
-    end = time.perf_counter()
     # Note: async context managers cannot return values
     # Use TTFTMonitor class to track measurements instead
+    yield
 
 
 class StreamingGenerator:
