@@ -238,7 +238,9 @@ def list():
     if cache_dir.exists():
         for model_dir in sorted(cache_dir.iterdir()):
             if model_dir.is_dir():
-                size = sum(f.stat().st_size for f in model_dir.rglob("*") if f.is_file())
+                size = sum(
+                    f.stat().st_size for f in model_dir.rglob("*") if f.is_file()
+                )
                 model_id = model_dir.name.replace("--", "/")
                 cached_models.append((model_id, size))
 
@@ -311,7 +313,10 @@ def pull(model_id):
     help="GPU memory utilization fraction (e.g., 0.9)",
 )
 @click.option(
-    "--tensor-parallel-size", type=int, default=1, help="Tensor parallel size (default: 1)"
+    "--tensor-parallel-size",
+    type=int,
+    default=1,
+    help="Tensor parallel size (default: 1)",
 )
 @click.option(
     "--quantization",
@@ -320,9 +325,19 @@ def pull(model_id):
     help="Quantization method (e.g., awq, gptq, bitsandbytes)",
 )
 @click.option(
-    "--max-model-len", type=int, default=8192, help="Maximum model length (default: 8192)"
+    "--max-model-len",
+    type=int,
+    default=8192,
+    help="Maximum model length (default: 8192)",
 )
-def serve_model(model_id, port, gpu_memory_utilization, tensor_parallel_size, quantization, max_model_len):
+def serve_model(
+    model_id,
+    port,
+    gpu_memory_utilization,
+    tensor_parallel_size,
+    quantization,
+    max_model_len,
+):
     """Start vLLM with a specified base model"""
 
     cache_dir = Path.home() / ".tessera" / "models"
