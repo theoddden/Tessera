@@ -250,8 +250,9 @@ async def generate(req: GenerateRequest):
 
             metadata = json.loads(content) if isinstance(content, str) else content
 
-            # Encode metadata
+            # Encode metadata and ensure it's on the correct device
             metadata_emb = trained_encoder(metadata)
+            metadata_emb = metadata_emb.to(device)
 
             # Get domain ID
             domain = metadata.get("domain", "general")
@@ -267,11 +268,21 @@ async def generate(req: GenerateRequest):
             else:
                 lora_weights = cached_adapter
 
-            # Convert to format expected by serialization
+            # Convert to format expected by serialization and ensure device consistency
             lora_weights_dict = {
-                "lora_A": lora_weights["lora_A"],
-                "lora_B": lora_weights["lora_B"],
+                "lora_A": lora_weights["lora_A"].to(device),
+                "lora_B": lora_weights["lora_B"].to(device),
             }
+
+            # Verify generated weights are not all zeros
+            lora_a_mean = lora_weights_dict["lora_A"].mean().item()
+            lora_a_std = lora_weights_dict["lora_A"].std().item()
+            lora_b_mean = lora_weights_dict["lora_B"].mean().item()
+            lora_b_std = lora_weights_dict["lora_B"].std().item()
+            print(
+                f"Generated LoRA weights - lora_A: mean={lora_a_mean:.6f}, std={lora_a_std:.6f}, "
+                f"lora_B: mean={lora_b_mean:.6f}, std={lora_b_std:.6f}"
+            )
         except Exception as e:
             print(
                 f"Trained hypernetwork generation failed: {e}, falling back to placeholder"
@@ -475,9 +486,7 @@ def infer_mode(content: str) -> str:
 
 def serialize_lora(weights: dict) -> bytes:
     """Convert LoRA weight dict to safetensors bytes"""
-    buffer = io.BytesIO()
-    save_safetensors(weights, buffer, metadata={})
-    return buffer.getvalue()
+    return save_safetensors(weights, metadata={})
 
 
 class PlaceholderHypernetwork:
