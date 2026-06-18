@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 import torch
-from safetensors.torch import save as save_safetensors
+from safetensors.torch import save_file
 from fastapi.responses import Response
 import io
 from typing import Optional, List, Dict, Union
@@ -63,6 +63,9 @@ def get_hypernetwork_cached(base_model: str, mode: str):
     # Use SHINE-enabled DocToLoRA for document mode
     if mode == "doc":
         return DocToLoRA(base_model, use_shine=True)
+    # For metadata mode, use the trained hypernetwork if available
+    elif mode == "metadata" and trained_hypernetwork and trained_encoder:
+        return TrainedHypernetworkWrapper(trained_encoder, trained_hypernetwork)
     # Placeholder for other modes - in production, load actual models
     else:
         return PlaceholderHypernetwork(base_model, mode)
@@ -99,6 +102,7 @@ def load_trained_hypernetwork(checkpoint_path: str, device: str = "cuda"):
         base_encoder = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
         encoder = StructuredMetadataEncoder(base_encoder, embed_dim=encoder_dim)
         encoder.load_state_dict(checkpoint["encoder_state_dict"])
+        encoder = encoder.to(device)
 
         hypernetwork = DomainConditionedHypernetwork(
             embed_dim=encoder_dim,
@@ -109,10 +113,15 @@ def load_trained_hypernetwork(checkpoint_path: str, device: str = "cuda"):
             num_domains=num_domains,
         )
         hypernetwork.load_state_dict(checkpoint["hypernetwork_state_dict"])
+        hypernetwork = hypernetwork.to(device)
 
+        print(f"✓ Successfully loaded trained hypernetwork on {device}")
         return encoder, hypernetwork
     except Exception as e:
-        print(f"Failed to load trained hypernetwork: {e}")
+        print(f"✗ Failed to load trained hypernetwork: {e}")
+        print("✗ This is a CRITICAL ERROR - server will not function without trained weights")
+        import traceback
+        traceback.print_exc()
         return None, None
 
 
@@ -127,9 +136,14 @@ if checkpoint_path:
         checkpoint_path, device
     )
     if trained_encoder and trained_hypernetwork:
-        print(f"Loaded trained hypernetwork from {checkpoint_path}")
+        print(f"✓ Loaded trained hypernetwork from {checkpoint_path}")
     else:
-        print(f"Could not load checkpoint from {checkpoint_path}, using placeholder")
+        print(f"✗ CRITICAL: Could not load checkpoint from {checkpoint_path}")
+        print("✗ Server will use placeholder hypernetwork (zero weights) - THIS IS NOT PRODUCTION READY")
+        print("✗ Check the error messages above for details")
+else:
+    print("✗ CRITICAL: No checkpoint path available")
+    print("✗ Server will use placeholder hypernetwork (zero weights) - THIS IS NOT PRODUCTION READY")
 
 
 # Latency monitoring
@@ -284,9 +298,11 @@ async def generate(req: GenerateRequest):
                 f"lora_B: mean={lora_b_mean:.6f}, std={lora_b_std:.6f}"
             )
         except Exception as e:
-            print(
-                f"Trained hypernetwork generation failed: {e}, falling back to placeholder"
-            )
+            print(f"✗ Trained hypernetwork generation failed: {e}")
+            print("✗ Full traceback:")
+            import traceback
+            traceback.print_exc()
+            print("✗ Falling back to placeholder hypernetwork (zero weights)")
             hypernetwork = get_hypernetwork_cached(req.base_model, mode)
             with torch.no_grad():
                 lora_weights = hypernetwork.generate(content, req.target_rank)
@@ -486,7 +502,41 @@ def infer_mode(content: str) -> str:
 
 def serialize_lora(weights: dict) -> bytes:
     """Convert LoRA weight dict to safetensors bytes"""
-    return save_safetensors(weights, metadata={})
+    buffer = io.BytesIO()
+    save_file(weights, buffer, metadata={})
+    return buffer.getvalue()
+
+
+class TrainedHypernetworkWrapper:
+    """Wrapper for trained hypernetwork to provide consistent interface."""
+
+    def __init__(self, encoder, hypernetwork):
+        self.encoder = encoder
+        self.hypernetwork = hypernetwork
+        self.device = next(self.encoder.parameters()).device
+
+    def generate(self, content: str, rank: int) -> dict:
+        """Generate LoRA weights using trained hypernetwork."""
+        import json
+
+        metadata = json.loads(content) if isinstance(content, str) else content
+
+        # Encode metadata and ensure it's on the correct device
+        metadata_emb = self.encoder(metadata)
+        metadata_emb = metadata_emb.to(self.device)
+
+        # Get domain ID
+        domain = metadata.get("domain", "general")
+        domain_id = hash(domain) % 10  # Simple hash-based domain ID
+
+        # Generate with trained hypernetwork
+        with torch.no_grad():
+            lora_weights = self.hypernetwork(metadata_emb, domain_id)
+
+        return {
+            "lora_A": lora_weights["lora_A"].to(self.device),
+            "lora_B": lora_weights["lora_B"].to(self.device),
+        }
 
 
 class PlaceholderHypernetwork:
