@@ -119,8 +119,11 @@ def load_trained_hypernetwork(checkpoint_path: str, device: str = "cuda"):
         return encoder, hypernetwork
     except Exception as e:
         print(f"✗ Failed to load trained hypernetwork: {e}")
-        print("✗ This is a CRITICAL ERROR - server will not function without trained weights")
+        print(
+            "✗ This is a CRITICAL ERROR - server will not function without trained weights"
+        )
         import traceback
+
         traceback.print_exc()
         return None, None
 
@@ -139,11 +142,15 @@ if checkpoint_path:
         print(f"✓ Loaded trained hypernetwork from {checkpoint_path}")
     else:
         print(f"✗ CRITICAL: Could not load checkpoint from {checkpoint_path}")
-        print("✗ Server will use placeholder hypernetwork (zero weights) - THIS IS NOT PRODUCTION READY")
+        print(
+            "✗ Server will use placeholder hypernetwork (zero weights) - THIS IS NOT PRODUCTION READY"
+        )
         print("✗ Check the error messages above for details")
 else:
     print("✗ CRITICAL: No checkpoint path available")
-    print("✗ Server will use placeholder hypernetwork (zero weights) - THIS IS NOT PRODUCTION READY")
+    print(
+        "✗ Server will use placeholder hypernetwork (zero weights) - THIS IS NOT PRODUCTION READY"
+    )
 
 
 # Latency monitoring
@@ -301,6 +308,7 @@ async def generate(req: GenerateRequest):
             print(f"✗ Trained hypernetwork generation failed: {e}")
             print("✗ Full traceback:")
             import traceback
+
             traceback.print_exc()
             print("✗ Falling back to placeholder hypernetwork (zero weights)")
             hypernetwork = get_hypernetwork_cached(req.base_model, mode)
