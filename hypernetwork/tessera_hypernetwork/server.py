@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 import torch
-from safetensors.torch import save_file
+from safetensors.torch import save as save_safetensors
 from fastapi.responses import Response
 import io
 from typing import Optional, List, Dict, Union
@@ -510,9 +510,7 @@ def infer_mode(content: str) -> str:
 
 def serialize_lora(weights: dict) -> bytes:
     """Convert LoRA weight dict to safetensors bytes"""
-    buffer = io.BytesIO()
-    save_file(weights, buffer, metadata={})
-    return buffer.getvalue()
+    return save_safetensors(weights, metadata={})
 
 
 class TrainedHypernetworkWrapper:
