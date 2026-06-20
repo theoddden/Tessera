@@ -3,7 +3,6 @@ from pydantic import BaseModel
 import torch
 from safetensors.torch import save_file
 from fastapi.responses import Response
-import io
 from typing import Optional, List, Dict, Union
 from tessera_hypernetwork.doc_to_lora import DocToLoRA
 from functools import lru_cache
