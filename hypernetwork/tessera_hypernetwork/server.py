@@ -510,6 +510,7 @@ def infer_mode(content: str) -> str:
 def serialize_lora(weights: dict) -> bytes:
     """Convert LoRA weight dict to safetensors bytes"""
     import tempfile
+
     with tempfile.NamedTemporaryFile(delete=False, suffix=".safetensors") as f:
         temp_path = f.name
     try:
@@ -518,6 +519,7 @@ def serialize_lora(weights: dict) -> bytes:
             return f.read()
     finally:
         import os
+
         if os.path.exists(temp_path):
             os.unlink(temp_path)
 
