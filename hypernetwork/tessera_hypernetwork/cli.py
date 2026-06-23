@@ -101,10 +101,42 @@ def generate(from_metadata, from_text, from_doc, base_model, rank, save, mode):
 
     try:
         if mode == "metadata":
-            from tessera_hypernetwork.metadata_to_lora import MetadataToLoRA
+            # Try to use the trained hypernetwork checkpoint if one is available.
+            # Importing server triggers checkpoint loading (once, cached by Python).
+            _used_trained = False
+            try:
+                import tessera_hypernetwork.server as _srv
+                from tessera_hypernetwork.server import TrainedHypernetworkWrapper
 
-            generator = MetadataToLoRA(base_model, default_rank=rank)
-            lora_weights = generator.generate(content, rank)
+                if (
+                    _srv.trained_encoder is not None
+                    and _srv.trained_hypernetwork is not None
+                ):
+                    _wrapper = TrainedHypernetworkWrapper(
+                        _srv.trained_encoder,
+                        _srv.trained_hypernetwork,
+                        _srv.num_domains_loaded,
+                    )
+                    _content_str = (
+                        json.dumps(content)
+                        if isinstance(content, dict)
+                        else str(content)
+                    )
+                    lora_weights = _wrapper.generate(_content_str, rank)
+                    _used_trained = True
+                    click.echo("  (using trained hypernetwork checkpoint)")
+            except Exception:
+                pass
+
+            if not _used_trained:
+                from tessera_hypernetwork.metadata_to_lora import MetadataToLoRA
+
+                generator = MetadataToLoRA(base_model, default_rank=rank)
+                lora_weights = generator.generate(content, rank)
+                click.echo(
+                    "  (no trained checkpoint found — using Xavier-init weights)",
+                    err=True,
+                )
         elif mode == "doc":
             from tessera_hypernetwork.doc_to_lora import DocToLoRA
 

@@ -286,18 +286,25 @@ async def generate(req: GenerateRequest):
     # Use mode from request if provided, otherwise infer from content
     mode = req.mode if req.mode else infer_mode(content)
 
-    # Unified path — no inline special-casing; each wrapper handles its own logic
-    hypernetwork = get_hypernetwork_cached(req.base_model, mode)
-    with torch.no_grad():
-        lora_weights_dict = hypernetwork.generate(content, req.target_rank)
+    # Check adapter cache first (keyed on content + mode + base_model + rank)
+    cache_key = {"c": content, "m": mode, "bm": req.base_model, "r": req.target_rank}
+    cached_bytes = adapter_cache.get(cache_key, 0) if adapter_cache else None
 
-    # Record adapter generation time
-    adapter_gen_time = (time.perf_counter() - adapter_gen_start) * 1000
+    if cached_bytes is not None:
+        adapter_bytes = cached_bytes
+        adapter_gen_time = (time.perf_counter() - adapter_gen_start) * 1000
+    else:
+        # Unified path — no inline special-casing; each wrapper handles its own logic
+        hypernetwork = get_hypernetwork_cached(req.base_model, mode)
+        with torch.no_grad():
+            lora_weights_dict = hypernetwork.generate(content, req.target_rank)
+        adapter_gen_time = (time.perf_counter() - adapter_gen_start) * 1000
+        adapter_bytes = serialize_lora(lora_weights_dict)
+        if adapter_cache:
+            adapter_cache.set(cache_key, 0, adapter_bytes)
+
     if ttft_monitor:
         ttft_monitor.record_adapter_generation(adapter_gen_time)
-
-    # Serialize to safetensors bytes
-    adapter_bytes = serialize_lora(lora_weights_dict)
 
     # Record latency
     end_time = time.perf_counter()

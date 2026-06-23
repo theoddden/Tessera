@@ -398,9 +398,11 @@ class SyntheticTargetDataset(Dataset):
         domain-differentiated weight targets.
         """
         domain = metadata.get("domain", "general")
-        # Use domain name as seed for reproducibility
+        # Use domain name as seed for reproducibility via a local Generator
+        # (avoids corrupting the global RNG state during DataLoader iteration)
         seed = hash(domain) % (2**32)
-        torch.manual_seed(seed)
+        rng = torch.Generator()
+        rng.manual_seed(seed)
 
         d_in, d_out = self._get_model_dimensions()
 
@@ -414,8 +416,8 @@ class SyntheticTargetDataset(Dataset):
 
         # Higher distinctiveness = larger magnitude weights
         scale = 0.1 * (1.0 + vocab_distinctiveness)
-        lora_A = torch.randn(self.rank, d_in) * scale
-        lora_B = torch.randn(d_out, self.rank) * scale
+        lora_A = torch.randn(self.rank, d_in, generator=rng) * scale
+        lora_B = torch.randn(d_out, self.rank, generator=rng) * scale
 
         return {
             "lora_A": lora_A,
@@ -1089,11 +1091,6 @@ def main():
         d_out=d_out,
         hidden_dim=2048,
         num_domains=num_domains,
-    )
-
-    # Initialize with domain-averaged targets
-    initialize_with_domain_averages(
-        hypernetwork, args.metadata_dir, args.base_model, args.rank
     )
 
     # Initialize optional monitoring tools
