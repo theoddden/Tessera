@@ -78,7 +78,14 @@ class TextToLoRA:
         model_dims = {
             "meta-llama/Llama-3-8B": (4096, 4096),
             "meta-llama/Llama-3-70B": (8192, 8192),
+            "meta-llama/Llama-3.1-8B": (4096, 4096),
+            "meta-llama/Llama-3.1-70B": (8192, 8192),
+            "meta-llama/Llama-3.2-3B": (3072, 3072),
             "Qwen/Qwen2-7B": (3584, 3584),
             "deepseek-ai/DeepSeek-V3": (7168, 7168),
+            "mistralai/Mistral-7B-v0.1": (4096, 4096),
+            "mistralai/Mistral-7B-Instruct-v0.2": (4096, 4096),
+            "google/gemma-2-9b": (3584, 3584),
+            "microsoft/Phi-3-mini-4k-instruct": (3072, 3072),
         }
         return model_dims.get(self.base_model, (4096, 4096))

@@ -91,16 +91,14 @@ class QuantizedHypernetwork(nn.Module):
         self.quantize()
 
     def quantize(self):
-        """Apply dynamic quantization to linear layers."""
-        for name, module in self.base_hypernetwork.named_modules():
-            if isinstance(module, nn.Linear):
-                # Dynamic quantization
-                quantized = torch.quantization.quantize_dynamic(
-                    module,
-                    {nn.Linear},
-                    dtype=torch.qint8 if self.quantization_bits == 8 else torch.qint4,
-                )
-                setattr(self.base_hypernetwork, name, quantized)
+        """Apply dynamic quantization to all linear layers in the hypernetwork."""
+        # quantize_dynamic must be applied to the full module, not per-layer —
+        # per-layer setattr with dotted names silently creates top-level attrs.
+        # PyTorch dynamic quantization only supports qint8 (not qint4).
+        dtype = torch.qint8
+        self.base_hypernetwork = torch.quantization.quantize_dynamic(
+            self.base_hypernetwork, {nn.Linear}, dtype=dtype
+        )
 
     def forward(self, *args, **kwargs):
         """Forward pass through quantized hypernetwork."""
@@ -108,13 +106,10 @@ class QuantizedHypernetwork(nn.Module):
 
     def estimate_energy_savings(self) -> float:
         """Estimate energy savings from quantization."""
-        # 8-bit quantization typically saves ~4x energy vs 32-bit
-        # 4-bit quantization typically saves ~8x energy vs 32-bit
+        # Dynamic qint8 quantization typically saves ~4x energy vs fp32
         if self.quantization_bits == 8:
             return 0.75  # 75% savings
-        elif self.quantization_bits == 4:
-            return 0.875  # 87.5% savings
-        return 0.0
+        return 0.5  # conservative estimate for other bit widths
 
 
 class BatchProcessor:

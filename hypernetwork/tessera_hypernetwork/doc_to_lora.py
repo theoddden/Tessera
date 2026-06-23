@@ -57,21 +57,35 @@ class SHINEProcessor:
                 chunk_embeddings.append(chunk_emb)
 
         # Stack chunk embeddings
-        chunk_embeddings = torch.stack(chunk_embeddings, dim=1)  # [1, num_chunks, dim]
+        # Stack to (num_chunks, embed_dim), then add batch dim for MultiheadAttention
+        # MultiheadAttention expects (seq, batch, embed_dim) — seq-first by default
+        chunk_embeddings = torch.stack(
+            chunk_embeddings, dim=0
+        )  # (num_chunks, embed_dim)
+        chunk_embeddings_mha = chunk_embeddings.unsqueeze(
+            1
+        )  # (num_chunks, 1, embed_dim)
 
         # Attention-based information selection (SHINE core)
         # Select most informative chunks based on self-attention
         attended, _ = self.attention_selector(
-            chunk_embeddings, chunk_embeddings, chunk_embeddings
+            chunk_embeddings_mha, chunk_embeddings_mha, chunk_embeddings_mha
         )
+        # attended: (num_chunks, 1, embed_dim) — transpose to batch-first for aggregation
+        attended_t = attended.transpose(0, 1)  # (1, num_chunks, embed_dim)
+        chunks_t = chunk_embeddings_mha.transpose(0, 1)  # (1, num_chunks, embed_dim)
 
         # Hierarchical aggregation
-        # Level 1: Chunk-level attention
-        chunk_weights = torch.softmax(attended.mean(dim=-1), dim=-1)
-        weighted_chunks = chunk_embeddings * chunk_weights.unsqueeze(-1)
+        # Level 1: Chunk-level attention weights (softmax over chunk axis)
+        chunk_weights = torch.softmax(
+            attended_t.mean(dim=-1), dim=-1
+        )  # (1, num_chunks)
+        weighted_chunks = chunks_t * chunk_weights.unsqueeze(
+            -1
+        )  # (1, num_chunks, embed_dim)
 
-        # Level 2: Global compression
-        doc_embedding = weighted_chunks.mean(dim=1)
+        # Level 2: Global compression -> single document embedding
+        doc_embedding = weighted_chunks.mean(dim=1)  # (1, embed_dim)
 
         return doc_embedding
 
@@ -190,7 +204,7 @@ class DocToLoRA:
                 "Running with untrained Xavier-initialized weights — outputs will not encode document content correctly."
             )
             return
-        state = torch.load(checkpoint_path, map_location="cpu")
+        state = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
         self.proj_lora_A.load_state_dict(state["proj_lora_A"])
         self.proj_lora_B.load_state_dict(state["proj_lora_B"])
         logging.info(f"DocToLoRA: loaded weights from '{checkpoint_path}'")
@@ -200,7 +214,14 @@ class DocToLoRA:
         model_dims = {
             "meta-llama/Llama-3-8B": (4096, 4096),
             "meta-llama/Llama-3-70B": (8192, 8192),
+            "meta-llama/Llama-3.1-8B": (4096, 4096),
+            "meta-llama/Llama-3.1-70B": (8192, 8192),
+            "meta-llama/Llama-3.2-3B": (3072, 3072),
             "Qwen/Qwen2-7B": (3584, 3584),
             "deepseek-ai/DeepSeek-V3": (7168, 7168),
+            "mistralai/Mistral-7B-v0.1": (4096, 4096),
+            "mistralai/Mistral-7B-Instruct-v0.2": (4096, 4096),
+            "google/gemma-2-9b": (3584, 3584),
+            "microsoft/Phi-3-mini-4k-instruct": (3072, 3072),
         }
         return model_dims.get(self.base_model, (4096, 4096))

@@ -5,6 +5,7 @@ Command-line interface for LoRA adapter generation and serving
 
 import click
 import json
+import os
 import subprocess
 import sys
 import shutil
@@ -217,6 +218,8 @@ def serve(port, host, qdrant_url, workers, base_model, vllm_port):
                 text=True,
             )
             click.echo(f"✓ vLLM started on port {vllm_port} (PID: {vllm_process.pid})")
+            # Tell server.py where to find vLLM (propagated via env to uvicorn workers)
+            os.environ["TESSERA_VLLM_URL"] = f"http://localhost:{vllm_port}"
         except Exception as e:
             click.echo(f"✗ Failed to start vLLM: {e}", err=True)
             raise click.Abort()
@@ -293,8 +296,15 @@ def list():
     model_dims = {
         "meta-llama/Llama-3-8B": (4096, 4096),
         "meta-llama/Llama-3-70B": (8192, 8192),
+        "meta-llama/Llama-3.1-8B": (4096, 4096),
+        "meta-llama/Llama-3.1-70B": (8192, 8192),
+        "meta-llama/Llama-3.2-3B": (3072, 3072),
         "Qwen/Qwen2-7B": (3584, 3584),
         "deepseek-ai/DeepSeek-V3": (7168, 7168),
+        "mistralai/Mistral-7B-v0.1": (4096, 4096),
+        "mistralai/Mistral-7B-Instruct-v0.2": (4096, 4096),
+        "google/gemma-2-9b": (3584, 3584),
+        "microsoft/Phi-3-mini-4k-instruct": (3072, 3072),
     }
 
     click.echo("Known model dimensions:")

@@ -590,7 +590,8 @@ def initialize_with_domain_averages(
 
         # Use domain-specific seed for consistent initialization
         seed = hash(domain) % (2**32)
-        torch.manual_seed(seed)
+        rng = torch.Generator()
+        rng.manual_seed(seed)
 
         # Get model dimensions
         model_dims = {
@@ -612,8 +613,8 @@ def initialize_with_domain_averages(
         scale = 0.05 * (1.0 + vocab_distinctiveness)
 
         domain_targets[domain] = {
-            "lora_A": torch.randn(rank, d_in) * scale,
-            "lora_B": torch.randn(d_out, rank) * scale,
+            "lora_A": torch.randn(rank, d_in, generator=rng) * scale,
+            "lora_B": torch.randn(d_out, rank, generator=rng) * scale,
         }
 
     print(f"Initialized {len(domain_targets)} domain-specific targets")
@@ -695,7 +696,10 @@ def curriculum_data_loader(
             if metadata_domain.startswith(config_domain):
                 config = config_obj
                 break
-        if config and config.priority <= current_stage:
+        # Unknown domains default to priority 3 so they're included from stage 3 onward
+        # (previously: if config was None the sample was silently dropped from all stages)
+        domain_priority = config.priority if config else 3
+        if domain_priority <= current_stage:
             filtered_indices.append(idx)
 
     # Skip stages with 0 samples
@@ -753,9 +757,17 @@ def train_hypernetwork(
     hypernetwork = hypernetwork.to(device)
     encoder = encoder.to(device)
 
-    # Optimizer with weight decay for regularization
+    # Optimizer: train hypernetwork + encoder's own projection/fusion layers.
+    # base_encoder (SentenceTransformer backbone) is kept frozen via torch.no_grad() in forward.
+    encoder_trainable = [
+        p
+        for name, p in encoder.named_parameters()
+        if not name.startswith("base_encoder.")
+    ]
     optimizer = optim.AdamW(
-        hypernetwork.parameters(), lr=learning_rate, weight_decay=1e-5
+        list(hypernetwork.parameters()) + encoder_trainable,
+        lr=learning_rate,
+        weight_decay=1e-5,
     )
 
     # Learning rate scheduler
@@ -837,7 +849,8 @@ def train_hypernetwork(
 
         # Training
         hypernetwork.train()
-        encoder.eval()  # Keep encoder frozen
+        encoder.train()  # Allow projection/fusion layers to train
+        encoder.base_encoder.eval()  # Keep pre-trained backbone frozen
         train_loss = 0.0
 
         for batch_idx, (metadata_batch, target_batch, domain_id_batch) in enumerate(

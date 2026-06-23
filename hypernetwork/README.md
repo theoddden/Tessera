@@ -2,7 +2,7 @@
 
 **Generate per-session LoRA adapters for inference tasks using hypernetwork synthesis.**
 
-**Version:** 1.3.10
+**Version:** 1.3.11
 
 ## Features
 
