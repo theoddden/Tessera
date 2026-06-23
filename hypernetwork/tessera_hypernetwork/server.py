@@ -94,7 +94,9 @@ def load_trained_hypernetwork(checkpoint_path: str, device: str = "cuda"):
         )
         from sentence_transformers import SentenceTransformer
 
-        checkpoint = torch.load(checkpoint_path, map_location=device)
+        checkpoint = torch.load(
+            checkpoint_path, map_location=device, weights_only=False
+        )
 
         # Detect encoder_dim from checkpoint
         first_weight = next(iter(checkpoint["encoder_state_dict"].values()))
@@ -281,6 +283,11 @@ async def generate(req: GenerateRequest):
     """
     start_time = time.perf_counter()
     adapter_gen_start = time.perf_counter()
+
+    if not req.messages:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=422, detail="messages array must not be empty")
 
     content = req.messages[0]["content"]
     # Use mode from request if provided, otherwise infer from content

@@ -221,9 +221,9 @@ def serve(port, host, qdrant_url, workers, base_model, vllm_port):
             click.echo(f"✗ Failed to start vLLM: {e}", err=True)
             raise click.Abort()
 
-    # Lazy-load uvicorn and server
+    # Use string import path so uvicorn multiprocessing (workers > 1) works correctly.
+    # The app object form breaks pickling in forked worker processes.
     import uvicorn
-    from tessera_hypernetwork.server import app
 
     if qdrant_url:
         click.echo(
@@ -232,15 +232,17 @@ def serve(port, host, qdrant_url, workers, base_model, vllm_port):
     else:
         click.echo(f"Starting Tessera server on {host}:{port}")
 
-    uvicorn.run(app, host=host, port=port, workers=workers)
+    uvicorn.run(
+        "tessera_hypernetwork.server:app", host=host, port=port, workers=workers
+    )
 
 
 @cli.command()
 @click.option(
     "--url",
     type=str,
-    default="http://localhost:8000",
-    help="Server URL (default: http://localhost:8000)",
+    default="http://localhost:8080",
+    help="Server URL (default: http://localhost:8080)",
 )
 def health(url):
     """Check server health status"""
@@ -457,8 +459,8 @@ def lorax():
 @click.option(
     "--server-url",
     type=str,
-    default="http://localhost:8000",
-    help="Tessera hypernetwork server URL (default: http://localhost:8000)",
+    default="http://localhost:8080",
+    help="Tessera hypernetwork server URL (default: http://localhost:8080)",
 )
 def import_adapter(path, name, base_model, server_url):
     """Import an adapter into the Tessera hypernetwork service"""
@@ -504,8 +506,8 @@ def import_adapter(path, name, base_model, server_url):
 @click.option(
     "--server-url",
     type=str,
-    default="http://localhost:8000",
-    help="Tessera hypernetwork server URL (default: http://localhost:8000)",
+    default="http://localhost:8080",
+    help="Tessera hypernetwork server URL (default: http://localhost:8080)",
 )
 def list_adapters(server_url):
     """List adapters loaded in the Tessera hypernetwork service"""
@@ -541,8 +543,8 @@ def list_adapters(server_url):
 @click.option(
     "--server-url",
     type=str,
-    default="http://localhost:8000",
-    help="Tessera hypernetwork server URL (default: http://localhost:8000)",
+    default="http://localhost:8080",
+    help="Tessera hypernetwork server URL (default: http://localhost:8080)",
 )
 def unload(name, server_url):
     """Unload an adapter from the Tessera hypernetwork service"""

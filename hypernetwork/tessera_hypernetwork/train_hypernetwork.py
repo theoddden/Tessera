@@ -113,12 +113,18 @@ class StructuredMetadataEncoder(nn.Module):
                 embedding = self.base_encoder.encode(
                     metadata_text, convert_to_tensor=True, show_progress_bar=False
                 ).to(device)
-            fused = self.fusion(embedding.unsqueeze(0))
-            return fused.squeeze(0)
+            # fusion expects (batch, seq, embed_dim) with batch_first=True
+            fused = self.fusion(
+                embedding.unsqueeze(0).unsqueeze(0)
+            )  # (1, 1, embed_dim)
+            return fused.squeeze(0).squeeze(0)  # (embed_dim,)
 
         # Stack and fuse field embeddings
         field_embeddings = torch.cat(fields, dim=0)  # (num_fields, embed_dim)
-        fused = self.fusion(field_embeddings)
+        # fusion expects (batch, seq, embed_dim) — add batch dim
+        fused = self.fusion(field_embeddings.unsqueeze(0)).squeeze(
+            0
+        )  # (num_fields, embed_dim)
 
         # Aggregate (mean pooling)
         aggregated = fused.mean(dim=0)
