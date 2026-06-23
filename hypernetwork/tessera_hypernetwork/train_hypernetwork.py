@@ -107,13 +107,14 @@ class StructuredMetadataEncoder(nn.Module):
                 field_values.append(field_name)
 
         if not fields:
-            # Fallback to full metadata encoding
+            # Fallback: encode full metadata and pass through fusion to maintain consistent shape
             metadata_text = json.dumps(metadata, indent=2)
             with torch.no_grad():
                 embedding = self.base_encoder.encode(
                     metadata_text, convert_to_tensor=True, show_progress_bar=False
                 ).to(device)
-            return embedding
+            fused = self.fusion(embedding.unsqueeze(0))
+            return fused.squeeze(0)
 
         # Stack and fuse field embeddings
         field_embeddings = torch.cat(fields, dim=0)  # (num_fields, embed_dim)

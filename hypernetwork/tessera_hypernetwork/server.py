@@ -65,8 +65,18 @@ def get_hypernetwork_cached(base_model: str, mode: str):
     # Use SHINE-enabled DocToLoRA for document mode
     if mode == "doc":
         return DocToLoRA(base_model, use_shine=True)
-    # For metadata mode, use the trained hypernetwork if available
+    # For metadata mode, use the trained hypernetwork if dimensions match
     elif mode == "metadata" and trained_hypernetwork and trained_encoder:
+        model_d_in, _ = get_model_dimensions(base_model)
+        if model_d_in != trained_d_in:
+            logging.warning(
+                "Trained hypernetwork was built for d_in=%d but '%s' requires d_in=%d "
+                "\u2014 falling back to placeholder.",
+                trained_d_in,
+                base_model,
+                model_d_in,
+            )
+            return PlaceholderHypernetwork(base_model, mode)
         return TrainedHypernetworkWrapper(
             trained_encoder, trained_hypernetwork, num_domains_loaded
         )
@@ -102,6 +112,29 @@ def load_trained_hypernetwork(checkpoint_path: str, device: str = "cuda"):
             num_domains = checkpoint.get("num_domains", 10)
             print(f"Using default num_domains: {num_domains}")
 
+        # Detect hidden_dim, rank, d_in, d_out from checkpoint weight shapes
+        hnet_sd = checkpoint["hypernetwork_state_dict"]
+        hidden_dim_w = hnet_sd.get("mlp_lora_A.0.weight")
+        lora_A_out_w = hnet_sd.get("mlp_lora_A.8.weight")
+        lora_B_out_w = hnet_sd.get("mlp_lora_B.8.weight")
+        hidden_dim = hidden_dim_w.shape[0] if hidden_dim_w is not None else 2048
+        if lora_A_out_w is not None and lora_B_out_w is not None:
+            rank_d_in = lora_A_out_w.shape[0]
+            d_out_rank = lora_B_out_w.shape[0]
+            for candidate_rank in [16, 8, 32, 4, 64]:
+                if rank_d_in % candidate_rank == 0 and d_out_rank % candidate_rank == 0:
+                    rank = candidate_rank
+                    d_in = rank_d_in // candidate_rank
+                    d_out = d_out_rank // candidate_rank
+                    break
+            else:
+                rank, d_in, d_out = 16, 4096, 4096
+        else:
+            rank, d_in, d_out = 16, 4096, 4096
+        print(
+            f"Detected hypernetwork dims: rank={rank}, d_in={d_in}, d_out={d_out}, hidden_dim={hidden_dim}"
+        )
+
         # Reconstruct models
         base_encoder = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
         encoder = StructuredMetadataEncoder(base_encoder, embed_dim=encoder_dim)
@@ -110,35 +143,36 @@ def load_trained_hypernetwork(checkpoint_path: str, device: str = "cuda"):
 
         hypernetwork = DomainConditionedHypernetwork(
             embed_dim=encoder_dim,
-            rank=16,
-            d_in=4096,
-            d_out=4096,
-            hidden_dim=2048,
+            rank=rank,
+            d_in=d_in,
+            d_out=d_out,
+            hidden_dim=hidden_dim,
             num_domains=num_domains,
         )
         hypernetwork.load_state_dict(checkpoint["hypernetwork_state_dict"])
         hypernetwork = hypernetwork.to(device)
 
         print(f"✓ Successfully loaded trained hypernetwork on {device}")
-        return encoder, hypernetwork, num_domains
+        return encoder, hypernetwork, num_domains, d_in
     except Exception as e:
         print(f"✗ Failed to load trained hypernetwork: {e}")
         print(
             "✗ This is a CRITICAL ERROR - server will not function without trained weights"
         )
         traceback.print_exc()
-        return None, None, 10
+        return None, None, 10, 4096
 
 
 # Load trained hypernetwork with auto-download from HuggingFace
 trained_encoder = None
 trained_hypernetwork = None
 num_domains_loaded = 10
+trained_d_in = 4096
 
 checkpoint_path = get_hypernetwork_weights()
 if checkpoint_path:
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    trained_encoder, trained_hypernetwork, num_domains_loaded = (
+    trained_encoder, trained_hypernetwork, num_domains_loaded, trained_d_in = (
         load_trained_hypernetwork(checkpoint_path, device)
     )
     if trained_encoder and trained_hypernetwork:
